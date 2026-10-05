@@ -5,9 +5,26 @@ Project Zomboid Build 42.21). Ziel ist, falsch, unvollständig, verschoben oder
 gar nicht gerenderte Dächer, Dachkanten, Wände und Objekte zu untersuchen und
 später zu beheben.
 
-**Aktueller Stand: 0.1.4-diag – reine Diagnoseversion.**
-Sie ändert **nichts** am Rendering, am Gameplay, an Savegames, an
-`projectzomboid.jar` oder an Viewpoint-Dateien und installiert keine Patches.
+**Aktueller Stand: 0.2.0-test – Diagnose + erster, schaltbarer Dach-Fix-Test.**
+Ändert nichts an Gameplay, Savegames, `projectzomboid.jar` oder Viewpoint-Dateien.
+
+### Dach-Fix (Test, vom Nutzer freigegeben am 2026-10-05)
+
+Befund: In `tileGeometry.txt` des Spiels haben nur 84 von 1 426 Dach-Tiles eine
+3D-Form; Viewpoint muss den Rest raten. Der Fix gibt Dach-Tiles ohne Form die
+Form des gleichen Tiles aus dem Schwester-Tileset (`roofs_02…05 ← roofs_01`,
+`roofs_30_02…10 ← roofs_30_01`). Zwei unabhängige Varianten:
+
+* **B (Code):** ZombieBuddy-Advice auf `viewpoint.world.TileMeshes.geometryFor`
+  – ersetzt nur ein *leeres* Ergebnis. Standard **an**; Schalter „Dach-Fix“ im
+  Fenster oder `roofFixB=false` in `Zomboid\VPGeometryFix\config.properties`.
+  Volle Wirkung nach Neustart des Spiels.
+* **A (Datei):** `VPGF-RoofData.bat` (im Doctor-Zip) schreibt aus *deiner*
+  Spieldatei eine Ergänzung nach `Zomboid\mods\ViewpointGeometryFix\42\media\tileGeometry.txt`.
+  Entfernen: `VPGF-RoofData.bat -Remove`. Ob Spiel/Viewpoint Mod-Geometrie
+  lesen, ist noch unbekannt – genau das wird getestet.
+
+Getestet nur offline (Java-/Lua-/PowerShell-Tests mit Nachbauten), nicht im Spiel.
 
 ## Funktionen
 
@@ -54,7 +71,7 @@ Eigenständiges Prüfprogramm, läuft **außerhalb** des Spiels, nur lesend:
 ## Installation (Windows 11)
 
 1. Spiel schließen.
-2. `build/dist/ViewpointGeometryFix-0.1.4-diag.zip` nach
+2. `build/dist/ViewpointGeometryFix-0.2.0-test.zip` nach
    `%USERPROFILE%\Zomboid\mods\` entpacken. Ergebnis:
    `%USERPROFILE%\Zomboid\mods\ViewpointGeometryFix\42\mod.info`.
 3. Spiel starten → Mods → **Viewpoint Geometry Fix (Diagnostics)** aktivieren

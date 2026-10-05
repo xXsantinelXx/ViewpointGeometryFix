@@ -475,7 +475,7 @@ if (-not (Test-Path -LiteralPath $console)) {
     for ($i = 0; $i -lt $all.Count; $i++) {
         $l = [string]$all[$i]
         $tag = '{0}: {1}' -f ($i + 1), $l
-        if ($l -match 'VPGeometryFix') {
+        if ($l -match 'VPGeometryFix|TileMeshes') {
             $ours.Add($tag)
             # error lines that directly follow one of ours (e.g. Lua stack traces), each only once
             for ($k = $i + 1; $k -lt [Math]::Min($all.Count, $i + 6); $k++) {

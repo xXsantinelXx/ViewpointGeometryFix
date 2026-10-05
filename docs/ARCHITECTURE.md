@@ -69,7 +69,7 @@ Tile-Formen:
   (`zombie.tileDepth`) aus Mod-Dateien ergänzt/überschrieben werden kann,
   lassen sich falsche Dach-/Kanten-Formen als Datenmod korrigieren – ohne
   Java-Hook. Wird zuerst geprüft.
-* **Konkreter Vorschlag (2026-10-05, noch nicht freigegeben):** Für
+* **Konkreter Vorschlag (2026-10-05, freigegeben und als 0.2.0-test umgesetzt):** Für
   Dach-Tiles ohne Form die Form des gleichen Tiles (gleiches `xy`) aus dem
   Schwester-Tileset übernehmen: `roofs_02…05 ← roofs_01`,
   `roofs_30_02…10 ← roofs_30_01`. Variante A als Daten-Mod

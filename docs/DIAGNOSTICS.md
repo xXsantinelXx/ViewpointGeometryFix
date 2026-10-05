@@ -1,4 +1,4 @@
-# Diagnose-Handbuch (0.1.4-diag)
+# Diagnose-Handbuch (0.2.0-test)
 
 ## Zuerst: VPGF Doctor (außerhalb des Spiels)
 
@@ -11,15 +11,15 @@ Viewpoint-JAR (ZIP-Verzeichnis, kein Dekompilieren).
 
 ## Ist die Mod aktiv?
 
-1. **Hauptmenü:** oben links steht gelb „VPGeometryFix 0.1.4-diag geladen – Java-Teil: OK“
+1. **Hauptmenü:** oben links steht gelb „VPGeometryFix 0.2.0-test geladen – Java-Teil: OK“
    (oder „NICHT geladen“, dann lädt ZombieBuddy das JAR nicht).
-2. **console.txt:** erste Zeile der Mod ist `[VPGeometryFix] Lua loaded 0.1.4-diag`.
+2. **console.txt:** erste Zeile der Mod ist `[VPGeometryFix] Lua loaded 0.2.0-test`.
    Fehlt sie, wird die Mod gar nicht geladen (Ordnerstruktur / Mod nicht aktiviert).
    Fehler der Mod erscheinen als `[VPGeometryFix] ERROR in …`.
 3. **Im Spielstand:** das Fenster (unten).
 
 Beim Laden eines Spielstands öffnet sich oben links das Fenster
-**„Viewpoint Geometry Fix 0.1.4-diag“** (verschiebbar, mit X schließbar).
+**„Viewpoint Geometry Fix 0.2.0-test“** (verschiebbar, mit X schließbar).
 Es zeigt:
 
 ```
@@ -83,6 +83,20 @@ Kurzfilter (PowerShell):
 ```powershell
 Select-String -Path "$env:USERPROFILE\Zomboid\console.txt" -Pattern '\[VPGeometryFix\]'
 ```
+
+## Dach-Fix testen (0.2.0-test)
+
+1. Spiel starten, Spielstand laden. Fensterzeilen „Dach-Fix B (Code): AN, Patch
+   aktiv, ersetzt N Formen“ – N > 0 heißt: Viewpoint hat für Dächer ohne Form die
+   Schwester-Form bekommen. „Patch noch nicht aufgerufen“ nach einer Weile heißt:
+   ZombieBuddy hat den Patch nicht angewendet (console.txt: `patching
+   viewpoint.world.TileMeshes.geometryFor`).
+2. Vorher/Nachher vergleichen: Schalter „Dach-Fix AUS“ + Spiel neu starten, dieselbe
+   Stelle ansehen; dann wieder AN.
+3. Variante A getrennt testen: B ausschalten, `VPGF-RoofData.bat` ausführen,
+   Spiel neu starten. Zeile „Dach-Fix A (Datei): vorhanden“.
+4. In der TILE-Zeile zeigt `fixB=an<-roofs_01_5`, welches Schwester-Tile verwendet
+   wird.
 
 ## Bericht
 

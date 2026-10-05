@@ -1,9 +1,9 @@
 name=Viewpoint Geometry Fix (Diagnostics)
 id=ViewpointGeometryFix
 author=ViewpointGeometryFix contributors
-modversion=0.1.4-diag
+modversion=0.2.0-test
 require=\ZombieBuddy
 javaJarFile=media/java/client/ViewpointGeometryFix.jar
 javaPkgName=vpgeometryfix
 ZBVersionMin=2.3.2
-description=Diagnostic-only companion for Project Viewpoint. Detects Viewpoint, ZombieBuddy and the game version, logs [VPGeometryFix] lines and, in debug mode, dumps read-only information about the tile/object you target. Does NOT change rendering, gameplay, save games or any game/Viewpoint file. Controlled through an in-game window (opens when a save loads) and the world right-click menu "VPGeometryFix"; no default hotkeys.
+description=TEST BUILD with an experimental roof fix (switchable in the in-game window): roof tiles without a 3D shape in the game data borrow the shape of the same tile from the sibling tileset (roofs_02-05 from roofs_01, roofs_30_02-10 from roofs_30_01). Also a diagnostic companion for Project Viewpoint. Detects Viewpoint, ZombieBuddy and the game version, logs [VPGeometryFix] lines and, in debug mode, dumps read-only information about the tile/object you target. Does NOT change rendering, gameplay, save games or any game/Viewpoint file. Controlled through an in-game window (opens when a save loads) and the world right-click menu "VPGeometryFix"; no default hotkeys.

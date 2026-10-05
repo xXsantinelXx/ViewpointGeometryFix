@@ -12,6 +12,7 @@ import vpgeometryfix.diag.Log;
 import vpgeometryfix.diag.Reflect;
 import vpgeometryfix.diag.SquareInspector;
 import vpgeometryfix.diag.ViewpointProbe;
+import vpgeometryfix.fix.RoofFallback;
 
 /**
  * Global Lua functions. ZombieBuddy registers every public static method
@@ -87,10 +88,53 @@ public final class LuaBridge {
             return "Java-Teil: OK\n"
                     + "PZ: " + i.pzVersion + "\n"
                     + "Viewpoint: " + vp + "\n"
-                    + "ZombieBuddy: " + (i.zbDetected ? i.zbVersion : "nicht gefunden");
+                    + "ZombieBuddy: " + (i.zbDetected ? i.zbVersion : "nicht gefunden") + "\n"
+                    + roofFixStatus();
         } catch (Throwable t) {
             return "Java-Teil: Fehler " + t.getClass().getSimpleName();
         }
+    }
+
+    /** Two status lines for the roof fix variants. */
+    @LuaMethod(name = "VPGF_roofFixStatus", global = true)
+    public static String roofFixStatus() {
+        try {
+            String b = "Dach-Fix B (Code): " + (RoofFallback.isEnabled() ? "AN" : "AUS")
+                    + (RoofFallback.calls() > 0 ? ", Patch aktiv, ersetzt " + RoofFallback.replaced() + " Formen"
+                        : ", Patch noch nicht aufgerufen");
+            Path data = roofDataFile();
+            String a = "Dach-Fix A (Datei): " + (data != null && java.nio.file.Files.isRegularFile(data)
+                    ? "vorhanden" : "nicht installiert");
+            return b + "\n" + a;
+        } catch (Throwable t) {
+            return "Dach-Fix: Status unbekannt";
+        }
+    }
+
+    /** Switches variant B for this session and stores it for the next start. */
+    @LuaMethod(name = "VPGF_setRoofFix", global = true)
+    public static void setRoofFix(boolean on) {
+        try {
+            RoofFallback.setEnabled(on);
+            Config.put("roofFixB", Boolean.toString(on));
+            Log.info("roof fix B: " + (on ? "ON" : "OFF") + " (affects newly built areas; restart for a full effect)");
+        } catch (Throwable t) {
+            Log.error("setRoofFix failed", t);
+        }
+    }
+
+    @LuaMethod(name = "VPGF_isRoofFix", global = true)
+    public static boolean isRoofFix() {
+        return RoofFallback.isEnabled();
+    }
+
+    /** {@code <mod>/42/media/tileGeometry.txt} next to our JAR (variant A, written by VPGF-RoofData). */
+    static Path roofDataFile() {
+        Path jar = Reflect.codeSource(LuaBridge.class);
+        if (jar == null) return null;
+        Path media = jar.getParent() == null ? null : jar.getParent().getParent();
+        media = media == null ? null : media.getParent();
+        return media == null ? null : media.resolve("tileGeometry.txt");
     }
 
     /** TILE lines of the last inspection, newline separated. */

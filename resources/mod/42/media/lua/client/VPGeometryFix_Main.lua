@@ -21,7 +21,7 @@
 ]]
 
 VPGF = VPGF or {}
-VPGF.VERSION = "0.1.4-diag"
+VPGF.VERSION = "0.2.0-test"
 VPGF.PREFIX = "[VPGeometryFix] "
 -- First line in console.txt: proves the Lua file was loaded at all.
 print(VPGF.PREFIX .. "Lua loaded " .. VPGF.VERSION)
@@ -259,6 +259,18 @@ function VPGF.inventory(which)
     return path
 end
 
+-- Roof fix variant B (Java advice on Viewpoint's TileMeshes.geometryFor). Status lines come from VPGF_status.
+function VPGF.roofFix()
+    return VPGF.java() and try(VPGF_isRoofFix) == true
+end
+
+function VPGF.setRoofFix(on)
+    if not VPGF.java() then setResults({ "Dach-Fix braucht den Java-Teil (ZombieBuddy)" }) return end
+    try(VPGF_setRoofFix, on and true or false)
+    setResults({ "Dach-Fix B " .. (on and "AN" or "AUS") .. " - wirkt fuer neu aufgebaute Bereiche,",
+        "fuer die volle Wirkung das Spiel neu starten (Einstellung bleibt gespeichert)." })
+end
+
 function VPGF.viewpointState()
     if not VPGF.java() then setResults({ "braucht den Java-Teil (ZombieBuddy)" }) return end
     local s = try(VPGF_viewpointState)
@@ -320,7 +332,8 @@ local function buttonDefs()
               if x then VPGF.setTarget(x, y, z) end
           end },
         { function() return hoverOn and "Hover AUS" or "Hover AN" end, function() VPGF.setHover(not hoverOn) end },
-        { function() return "Inventar" end, function() VPGF.inventory("viewpoint") end },
+        { function() return VPGF.roofFix() and "Dach-Fix AUS" or "Dach-Fix AN" end,
+          function() VPGF.setRoofFix(not VPGF.roofFix()) end },
         { function() return "X" end, function() VPGF.hidePanel() end },
     }
 end
