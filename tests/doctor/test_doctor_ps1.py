@@ -25,9 +25,15 @@ with tempfile.TemporaryDirectory() as t:
     pz.mkdir(parents=True)
     (pz / "projectzomboid.jar").write_text("x")
     (pz / "ProjectZomboid64.json").write_text('{"vmArgs": ["-Xmx4g"]}')
-    vp = lib / "steamapps/workshop/content/108600/999/mods/Viewpoint/42"
+    # like the real Workshop item: mod.info in common/, JAR in 42/ (which has no mod.info)
+    vproot = lib / "steamapps/workshop/content/108600/999/mods/Viewpoint"
+    (vproot / "common").mkdir(parents=True)
+    (vproot / "common/mod.info").write_text("name=Project Viewpoint\nid=Viewpoint\nmodversion=0.1.5a-hotfix\n")
+    vp = vproot / "42"
     (vp / "media/java/client").mkdir(parents=True)
-    (vp / "mod.info").write_text("name=Project Viewpoint\nid=Viewpoint\nmodversion=0.1.5a-hotfix\n")
+    addon = lib / "steamapps/workshop/content/108600/998/mods/ViewpointCar/42"
+    addon.mkdir(parents=True)
+    (addon / "mod.info").write_text("id=ViewpointCar\nmodversion=1.0\n")
     with zipfile.ZipFile(vp / "media/java/client/viewpoint.jar", "w") as z:
         for n in ["viewpoint/render/WorldRenderer.class", "viewpoint/world/ChunkWalk.class",
                   "viewpoint/input/Look.class", "viewpoint/render/WorldRenderer$1.class"]:
@@ -38,8 +44,17 @@ with tempfile.TemporaryDirectory() as t:
     (good / "mod.info").write_text("id=ViewpointGeometryFix\nmodversion=0.1.3-diag\njavaJarFile=media/java/client/ViewpointGeometryFix.jar\n")
     (good / "media/lua/client/VPGeometryFix_Main.lua").write_text("--")
     (zb / "mods/ViewpointGeometryFix/common").mkdir()
-    (zb / "console.txt").write_text("LOG : General > loading Viewpoint\nLOG : Lua > [VPGeometryFix] Lua loaded 0.1.3-diag\n"
-                                     "LOG : General > mods: ViewpointGeometryFix\nERROR: something broke\n")
+    (zb / "console.txt").write_text("\n".join(
+        ["LOG : General > [ZB] ZombieBuddy v2.3.4 loading ViewpointGeometryFix.jar",
+         "LOG : Lua > [VPGeometryFix] Lua loaded 0.1.3-diag",
+         "LOG : Lua > [VPGeometryFix] Loaded",
+         "LOG : Lua > [VPGeometryFix] PZ version: 42.21.0 (from Lua)",
+         "LOG : Lua > [VPGeometryFix] Debug mode: OFF (Lua only)",
+         "LOG : Lua > [VPGeometryFix] ERROR in OnGameStart: boom",
+         "ERROR: General > attempted index: x of non-table",
+         "LOG : General > [Viewpoint] renderer ready"]
+        + ["LOG : General > [Viewpoint] 60 fps | gpu ms floors 0.01"] * 300
+        + ["LOG : General > [ViewpointTurbo/VRAM] floor reserved"] * 50) + "\n")
     out = t / "out/VPGF-Report.txt"
     out.parent.mkdir()
     r = subprocess.run([pwsh, "-NoProfile", "-File", str(PS1), "-SteamLib", str(lib), "-Zomboid", str(zb), "-Out", str(out)],
@@ -48,16 +63,23 @@ with tempfile.TemporaryDirectory() as t:
     check(r.stderr.strip() == "", f"stderr: {r.stderr}")
     rep = out.read_text(encoding="utf-8-sig") if out.exists() else ""
     for needle in ["ProjectZomboid64.json: javaagent NICHT eingetragen",
-                   "Kein -javaagent in ProjectZomboid64.json",
                    "Mod: id=Viewpoint name=Project Viewpoint modversion=0.1.5a-hotfix",
+                   "viewpoint.jar: sha256",
+                   "Viewpoint-Add-ons im Workshop-Ordner (1): ViewpointCar 1.0",
                    "Klassen gesamt: 4, davon mit Geometrie-/Render-Stichwort: 3",
                    "      viewpoint.render.WorldRenderer", "      viewpoint.world.ChunkWalk",
                    "    Lua: vorhanden", "    JAR: FEHLT",
-                   "Mod-ID erwaehnt: ja, Mod-Lua geladen: ja, Startblock: NEIN, ZombieBuddy-Zeilen: NEIN",
-                   "Keine ZombieBuddy-Zeilen in console.txt", "=== ERGEBNIS ==="]:
+                   "Mod-Lua geladen: ja, Startblock: ja, Java-Teil der Mod: NEIN, ZombieBuddy aktiv: ja, Fehlerzeilen der Mod: 1",
+                   "--- Zeilen dieser Mod (6)", "ERROR in OnGameStart: boom", "attempted index: x of non-table",
+                   "--- ZombieBuddy (1)", "--- Viewpoint (ohne Leistungsmeldungen) (1)", "[Viewpoint] renderer ready",
+                   "Der Lua-Teil der Mod laeuft, der Java-Teil nicht", "Die Mod meldet 1 Fehler", "=== ERGEBNIS ==="]:
         check(needle in rep, f"missing {needle!r}\n{rep}")
     check("viewpoint.input.Look" not in rep.split("=== 5")[0].split("Klassen gesamt")[1], "non-keyword class listed")
     check("Mod liegt an falscher Stelle" not in rep, "correct path reported as wrong")
+    check(rep.count("attempted index") == 1, "follow-up error listed once")
+    check("ZombieBuddy nicht gefunden" not in rep, "no ZombieBuddy finding while it is active")
+    check("60 fps" not in rep and "ViewpointTurbo/VRAM" not in rep, "performance spam must be filtered")
+    check("javaagent" not in rep.split("=== ERGEBNIS ===")[1], "javaagent is no finding when ZombieBuddy is evidently active")
     cls = out.parent / "VPGF-Viewpoint-Classes.txt"
     check(cls.exists() and "viewpoint.input.Look" in cls.read_text(encoding="utf-8-sig"), "class list file")
 

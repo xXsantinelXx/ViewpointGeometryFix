@@ -12,7 +12,7 @@ param(
 )
 
 $ErrorActionPreference = 'Continue'
-$Version = '0.2.0'
+$Version = '0.2.1'
 $ModId = 'ViewpointGeometryFix'
 $Pins = @{
     'e1a69eb743ede60b213a0fe7f8b83d4fcab773036d256cc4543a336f3b058a33' = 'projectzomboid.jar 42.21.0'
@@ -137,9 +137,10 @@ if (-not $pz) {
         if ($lines.Count -gt 0) { $agentFound = $true; Line "${json}: javaagent eingetragen"; $lines | ForEach-Object { Line ('    ' + $_.Trim()) } }
         else { Line "${json}: javaagent NICHT eingetragen" }
     }
-    if (-not $agentFound) {
-        Finding 'Kein -javaagent in ProjectZomboid64.json: ZombieBuddy ist nicht installiert/aktiv. Ohne ZombieBuddy laedt kein Java-Teil (weder Viewpoint noch diese Mod). ZombieBuddy-Installer erneut ausfuehren.'
-    }
+    # ZombieBuddy can also start through other files (e.g. a native loader); list them.
+    Get-ChildItem -LiteralPath $pz -File -ErrorAction SilentlyContinue |
+        Where-Object { $_.Name -match '(?i)zombiebuddy|^zb|zbnative' } |
+        ForEach-Object { Line ('ZombieBuddy-Datei im Spielordner: ' + $_.Name) }
 }
 
 # ---------------------------------------------------------------- zombiebuddy
@@ -153,11 +154,13 @@ foreach ($m in $workshop) {
         Get-Jars $m | ForEach-Object { $zbJars.Add($_.FullName) }
     }
 }
-if ($zbJars.Count -eq 0) { Line 'ZombieBuddy.jar nicht gefunden.'; Finding 'ZombieBuddy nicht gefunden.' }
+if ($zbJars.Count -eq 0) { Line 'ZombieBuddy.jar nicht im Spielordner/Workshop gefunden (Abschnitt 6 zeigt, ob ZombieBuddy trotzdem laeuft).' }
 foreach ($j in $zbJars) { Line ("$j : " + (Describe-Jar $j)) }
 
 # ---------------------------------------------------------------- viewpoint
 Section '4 Viewpoint'
+$addons = New-Object System.Collections.Generic.List[string]
+$seenRoots = @{}
 $classOut = [IO.Path]::Combine((Split-Path -Parent ([IO.Path]::GetFullPath($Out))), 'VPGF-Viewpoint-Classes.txt')
 $vpFound = $false
 foreach ($m in $workshop) {
@@ -165,13 +168,23 @@ foreach ($m in $workshop) {
     if (-not $mi) { continue }
     $id = Clean-Id $mi['id']
     if ($id -notmatch 'viewpoint' -or $id -eq $ModId) { continue }
+    if ($id -ne 'Viewpoint') {
+        $a = "$id " + $mi['modversion']
+        if (-not $addons.Contains($a)) { $addons.Add($a) }
+        continue
+    }
+    # The JAR may sit in another version folder (42, 42.21, common) than mod.info: search the whole mod root.
+    $root = Split-Path -Parent $m
+    if ($seenRoots.ContainsKey($root)) { continue }
+    $seenRoots[$root] = $true
     $vpFound = $true
     Line ("Mod: id=$id name=" + $mi['name'] + ' modversion=' + $mi['modversion'])
-    Line "    Ordner: $m"
+    Line "    Ordner: $root"
     Line ('    javaJarFile=' + $mi['javaJarFile'] + ' javaPkgName=' + $mi['javaPkgName'] + ' require=' + $mi['require'])
-    foreach ($jar in (Get-Jars $m)) {
-        Line ('    ' + $jar.FullName.Substring($m.Length).TrimStart('\', '/') + ': ' + (Describe-Jar $jar.FullName))
-        if ($id -ne 'Viewpoint') { continue }
+    $vpJars = @(Get-Jars $root)
+    if ($vpJars.Count -eq 0) { Line '    Kein JAR im Mod-Ordner gefunden.' }
+    foreach ($jar in $vpJars) {
+        Line ('    ' + $jar.FullName.Substring($root.Length).TrimStart('\', '/') + ': ' + (Describe-Jar $jar.FullName))
         try {
             Add-Type -AssemblyName System.IO.Compression.FileSystem
             $zip = [System.IO.Compression.ZipFile]::OpenRead($jar.FullName)
@@ -189,6 +202,7 @@ foreach ($m in $workshop) {
     }
 }
 if (-not $vpFound) { Line 'Keine Viewpoint-Mod im Workshop-Ordner gefunden.'; Finding 'Viewpoint nicht gefunden (nur Workshop-Ordner durchsucht).' }
+if ($addons.Count -gt 0) { Line ('Viewpoint-Add-ons im Workshop-Ordner (' + $addons.Count + '): ' + ($addons -join ', ')) }
 
 # ---------------------------------------------------------------- this mod
 Section '5 ViewpointGeometryFix (diese Mod)'
@@ -229,50 +243,76 @@ if ($infos.Count -gt 1) { Finding "Mod mehrfach installiert - alle Kopien ausser
 # ---------------------------------------------------------------- console.txt
 Section '6 console.txt (letzter Spielstart)'
 $console = [IO.Path]::Combine($Zomboid, 'console.txt')
+function Add-Block([string]$title, $items, [int]$max, [bool]$fromEnd) {
+    Line ''
+    Line ("--- $title (" + @($items).Count + ')')
+    $arr = @($items)
+    if ($arr.Count -gt $max) {
+        if ($fromEnd) { Line ('(' + ($arr.Count - $max) + ' aeltere ausgelassen)'); $arr = $arr[($arr.Count - $max)..($arr.Count - 1)] }
+        else { $arr = $arr[0..($max - 1)] }
+    }
+    foreach ($s in $arr) {
+        if ($s.Length -gt 400) { $s = $s.Substring(0, 400) + ' ...' }
+        Line $s
+    }
+}
 if (-not (Test-Path -LiteralPath $console)) {
     Line "Nicht vorhanden: $console"
     Finding 'console.txt fehlt - Spiel einmal starten und bis ins Hauptmenue laufen lassen.'
 } else {
     $all = @(Get-Content -LiteralPath $console -ErrorAction SilentlyContinue)
     Line ("Datei: $console, {0} Zeilen, geaendert {1}" -f $all.Count, (Get-Item -LiteralPath $console).LastWriteTime)
-    $relevant = '(?i)(vpgeometryfix|zombiebuddy|\[zb|viewpoint|javaagent|loading mod|mod failed)'
-    $errorRx = '(?i)(exception|error|stack trace|attempted index|non-table)'
-    $picked = New-Object System.Collections.Generic.List[string]
-    $errors = 0
+    $errorRx = '(?i)(exception|error|stack trace|attempted index|non-table|nil value)'
+    $spamRx = '\[Viewpoint\] (slow frame|\d+ fps|video memory|floor pages)|\[ViewpointTurbo/'
+    $ours = New-Object System.Collections.Generic.List[string]
+    $zb = New-Object System.Collections.Generic.List[string]
+    $vp = New-Object System.Collections.Generic.List[string]
+    $javaMods = $false
+    $addedLines = @{}
     for ($i = 0; $i -lt $all.Count; $i++) {
         $l = [string]$all[$i]
-        if ($l -match $errorRx) { $errors++ }
-        if ($l -match $relevant) {
-            $picked.Add(('{0}: {1}' -f ($i + 1), $l))
-            for ($k = $i + 1; $k -lt [Math]::Min($all.Count, $i + 4); $k++) {
-                if ([string]$all[$k] -match $errorRx) { $picked.Add(('{0}: {1}' -f ($k + 1), $all[$k])) }
+        $tag = '{0}: {1}' -f ($i + 1), $l
+        if ($l -match 'VPGeometryFix') {
+            $ours.Add($tag)
+            # error lines that directly follow one of ours (e.g. Lua stack traces), each only once
+            for ($k = $i + 1; $k -lt [Math]::Min($all.Count, $i + 6); $k++) {
+                $n = [string]$all[$k]
+                if ($n -match $errorRx -and $n -notmatch 'VPGeometryFix' -and -not $addedLines.ContainsKey($k)) {
+                    $addedLines[$k] = $true
+                    $ours.Add(('{0}:   {1}' -f ($k + 1), $n))
+                }
             }
+            continue
+        }
+        if ($l -match '(?i)zombiebuddy|\[ZB') { $zb.Add($tag); continue }
+        if ($l -match '\[Viewpoint') {
+            $javaMods = $true
+            if ($l -notmatch $spamRx) { $vp.Add($tag) }
         }
     }
     $text = $all -join "`n"
     $luaLoaded = $text.Contains('[VPGeometryFix] Lua loaded')
     $startBlock = $text.Contains('[VPGeometryFix] Loaded')
-    $modSeen = $text.Contains($ModId)
-    $zbSeen = ($text -match '(?i)zombiebuddy') -or $text.Contains('[ZB')
-    $vpSeen = $text -match '(?i)viewpoint'
+    # Lua fallback (no Java part) ends its startup block with "Debug mode: ... (Lua only)"
+    $luaOnly = $text -match '\[VPGeometryFix\] Debug mode: \w+ \(Lua only\)'
+    $javaLoaded = $startBlock -and -not $luaOnly
+    $ourErrors = @($ours | Where-Object { $_ -match '\[VPGeometryFix\] ERROR' })
+    $zbActive = ($zb.Count -gt 0) -or $javaMods
     function JaNein($b) { if ($b) { 'ja' } else { 'NEIN' } }
-    Line ('Mod-ID erwaehnt: {0}, Mod-Lua geladen: {1}, Startblock: {2}, ZombieBuddy-Zeilen: {3}, Viewpoint-Zeilen: {4}, Fehlerzeilen gesamt: {5}' -f `
-        (JaNein $modSeen), (JaNein $luaLoaded), (JaNein $startBlock), (JaNein $zbSeen), (JaNein $vpSeen), $errors)
-    Line ''
-    $unique = @($picked | Select-Object -Unique)
-    $from = [Math]::Max(0, $unique.Count - 120)
-    if ($from -gt 0) { Line "($from aeltere relevante Zeilen ausgelassen)" }
-    for ($i = $from; $i -lt $unique.Count; $i++) {
-        $s = $unique[$i]
-        if ($s.Length -gt 400) { $s = $s.Substring(0, 400) + ' ...' }
-        Line $s
+    Line ('Mod-Lua geladen: {0}, Startblock: {1}, Java-Teil der Mod: {2}, ZombieBuddy aktiv: {3}, Fehlerzeilen der Mod: {4}' -f `
+        (JaNein $luaLoaded), (JaNein $startBlock), (JaNein $javaLoaded), (JaNein $zbActive), $ourErrors.Count)
+
+    Add-Block 'Zeilen dieser Mod' $ours 120 $true
+    Add-Block 'ZombieBuddy' $zb 60 $false
+    Add-Block 'Viewpoint (ohne Leistungsmeldungen)' $vp 40 $false
+
+    if (-not $luaLoaded -and -not $startBlock) {
+        Finding 'console.txt enthaelt keine Zeile dieser Mod: das Spiel hat sie NICHT geladen. Im Hauptmenue unter Mods aktivieren (B42: auch in der Mod-Auswahl des Spielstands) und Ordner pruefen (Abschnitt 5).'
+    } elseif (-not $javaLoaded) {
+        Finding 'Der Lua-Teil der Mod laeuft, der Java-Teil nicht. ZombieBuddy muss das JAR von ViewpointGeometryFix freigeben (Abfrage beim Spielstart, siehe Block ZombieBuddy).'
     }
-    if (-not $modSeen) {
-        Finding 'console.txt erwaehnt ViewpointGeometryFix nicht: das Spiel hat die Mod NICHT geladen. Im Hauptmenue unter Mods aktivieren (B42: auch in der Mod-Auswahl des Spielstands) und Ordner pruefen (Abschnitt 5).'
-    } elseif (-not $luaLoaded) {
-        Finding 'Mod wird erwaehnt, aber ihre Lua-Datei lief nicht (keine Zeile "Lua loaded") - siehe Fehlerzeilen in Abschnitt 6.'
-    }
-    if (-not $zbSeen) { Finding 'Keine ZombieBuddy-Zeilen in console.txt: ZombieBuddy laeuft nicht (Abschnitt 2/3).' }
+    if ($ourErrors.Count -gt 0) { Finding ('Die Mod meldet ' + $ourErrors.Count + ' Fehler - siehe Block "Zeilen dieser Mod".') }
+    if (-not $zbActive) { Finding 'Weder ZombieBuddy- noch Viewpoint-Java-Zeilen in console.txt: ZombieBuddy laeuft nicht. ZombieBuddy-Installer erneut ausfuehren.' }
 }
 
 Section 'ERGEBNIS'
