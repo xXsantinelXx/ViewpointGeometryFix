@@ -52,6 +52,12 @@ with tempfile.TemporaryDirectory() as t:
             z.writestr(n, b"\xca\xfe\xba\xbe")
         for f in sorted((t / "fxc").rglob("*.class")):
             z.write(f, f.relative_to(t / "fxc").as_posix())
+    (pz / "media/tileGeometry").mkdir(parents=True)
+    (pz / "media/tileGeometry/roofs_01.txt").write_text("x" * 3000)
+    (pz / "media/scripts").mkdir(parents=True)
+    (pz / "media/scripts/items.txt").write_text("x")
+    (addon / "media").mkdir()
+    (addon / "media/tileDepth_override.txt").write_text("x")
     zb = t / "Zomboid"
     good = zb / "mods/ViewpointGeometryFix/42"
     (good / "media/lua/client").mkdir(parents=True)
@@ -92,6 +98,7 @@ with tempfile.TemporaryDirectory() as t:
     check("Mod liegt an falscher Stelle" not in rep, "correct path reported as wrong")
     check(rep.count("attempted index") == 1, "follow-up error listed once")
     check("ZombieBuddy nicht gefunden" not in rep, "no ZombieBuddy finding while it is active")
+    check("items.txt" not in rep, "unrelated media file listed")
     check("60 fps" not in rep and "ViewpointTurbo/VRAM" not in rep, "performance spam must be filtered")
     check("javaagent" not in rep.split("=== ERGEBNIS ===")[1], "javaagent is no finding when ZombieBuddy is evidently active")
     geo = out.parent / "VPGF-Viewpoint-Geometry.txt"

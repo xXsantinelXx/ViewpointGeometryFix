@@ -5,7 +5,7 @@ Project Zomboid Build 42.21). Ziel ist, falsch, unvollständig, verschoben oder
 gar nicht gerenderte Dächer, Dachkanten, Wände und Objekte zu untersuchen und
 später zu beheben.
 
-**Aktueller Stand: 0.1.3-diag – reine Diagnoseversion.**
+**Aktueller Stand: 0.1.4-diag – reine Diagnoseversion.**
 Sie ändert **nichts** am Rendering, am Gameplay, an Savegames, an
 `projectzomboid.jar` oder an Viewpoint-Dateien und installiert keine Patches.
 
@@ -54,7 +54,7 @@ Eigenständiges Prüfprogramm, läuft **außerhalb** des Spiels, nur lesend:
 ## Installation (Windows 11)
 
 1. Spiel schließen.
-2. `build/dist/ViewpointGeometryFix-0.1.3-diag.zip` nach
+2. `build/dist/ViewpointGeometryFix-0.1.4-diag.zip` nach
    `%USERPROFILE%\Zomboid\mods\` entpacken. Ergebnis:
    `%USERPROFILE%\Zomboid\mods\ViewpointGeometryFix\42\mod.info`.
 3. Spiel starten → Mods → **Viewpoint Geometry Fix (Diagnostics)** aktivieren

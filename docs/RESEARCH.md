@@ -158,6 +158,47 @@ Kandidaten sind daher `world.WorldMesher`/`WallMesher`/`TileMesh(es)`/`Recipe`
 [H]. Ob ein Modellpaket (PZVoxelStudio, Viewpoint2Dto3D) die Dach-Sprites
 ersetzt, ist zu prüfen [U].
 
+### Update 2026-10-05 (2): Nahwelt-Pipeline aus den Signaturen
+
+Quelle: Methoden-/Feldsignaturen von 88 Klassen aus dem JAR des Nutzers
+(Doctor 0.3.0). Die **Signaturen** sind [V1]; die **Abfolge** ist aus Namen und
+Typen abgeleitet [H], aber in sich schlüssig:
+
+```
+ChunkWalk.walk / ChunkCache.update(Frame, IsoCell, int)
+  → ChunkBuilds.queue / buildQueued / rebuild(Level, IsoChunk, level, …)
+    → WorldMesher.gather(IsoChunk, level, …) : Recipe          (Hauptthread)
+        → WorldMesher.square(IsoGridSquare, x, y, z, boolean[], boolean)
+            → TileMeshes.get(IsoSprite, Texture, IsoSprite) : TileMesh  (Cache)
+                → TileMeshes.create(…) → geometryFor(IsoSprite) : ArrayList
+                    → TileMeshes.lookup(String, int)
+                    → MeshBuilder.add(zombie.tileDepth.TileGeometryFile$Geometry)
+                         → box(Box) / cylinder(Cylinder) / polygon(Polygon) → build() : TileMesh
+                → (ohne Geometrie) TileMeshes.edgeQuads(IsoSprite) / wall(boolean…) / floor()
+            → WallMesher.wall(IsoSprite, TileMesh, Texture, IsoGridSquare, x, y, z, boolean[])
+            → WorldMesher.rise(IsoObject) : float, pixelScale(Texture), overlays(…)
+            → Recipe.place / placeFace / placeCaps → Recipe$Op (EMIT, FACE, CAPS, RAW, PLANT, MODEL)
+            → PackGather.object(…) (Modellpakete ersetzen Sprites durch 3D-Modelle)
+  → Cook.mesh(Recipe) : ChunkMeshData                      (Cook-Threads)
+  → Meshes.prepare / draw → GPU (MeshArena)
+Sichtbarkeit: Rooms.plan(SceneData, …, ChunkMeshData, …) → DrawPlans.leaveOut(…)
+Fernwelt:     FarTiles.classify(String) (Kinds u. a. ROOF, WALL) → ShellMesher.mesh(…) → FarShell
+```
+
+**Kernbefund [H, stark]:** Die 3D-Form eines Tiles (Dachfläche, Dachkante,
+Giebel) stammt aus `zombie.tileDepth.TileGeometryFile` – den Tile-Geometrien,
+die das Spiel in B42 für die Tiefensortierung der **isometrischen** Ansicht
+nutzt. Diese Daten müssen nur aus der festen Iso-Kamera stimmen; aus der
+Ich-Perspektive fallen Abweichungen auf. Das passt zu den Fehlerbildern A–D
+(`OBSERVATIONS.md`): Dachflächen mit falscher Höhe, überstehende
+Kanten-Polygone, fehlende Flächen (keine Geometrie → Rückfall auf
+`edgeQuads`/leer), gestufte Vordächer.
+
+Zu prüfen [U]: (1) welche Datei die Tile-Geometrie enthält und ob Mods sie
+überschreiben können (Doctor 0.3.1 sucht danach), (2) was
+`TileMeshes.geometryFor` für die betroffenen Dach-Sprites liefert
+(Inspektion 0.1.4 schreibt es in jede TILE-Zeile: `vpGeom=…`).
+
 Die Klassen, die aus einzelnen `IsoObject`/Sprite-Typen Dreiecke erzeugen
 („Mesh-Builder“ für Dach/Wand/Kante), sind in keiner öffentlichen Quelle
 benannt. Das Diagnose-Werkzeug erzeugt dafür lokal ein Inventar

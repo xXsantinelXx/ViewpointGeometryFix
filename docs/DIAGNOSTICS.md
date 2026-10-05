@@ -1,4 +1,4 @@
-# Diagnose-Handbuch (0.1.3-diag)
+# Diagnose-Handbuch (0.1.4-diag)
 
 ## Zuerst: VPGF Doctor (außerhalb des Spiels)
 
@@ -11,15 +11,15 @@ Viewpoint-JAR (ZIP-Verzeichnis, kein Dekompilieren).
 
 ## Ist die Mod aktiv?
 
-1. **Hauptmenü:** oben links steht gelb „VPGeometryFix 0.1.3-diag geladen – Java-Teil: OK“
+1. **Hauptmenü:** oben links steht gelb „VPGeometryFix 0.1.4-diag geladen – Java-Teil: OK“
    (oder „NICHT geladen“, dann lädt ZombieBuddy das JAR nicht).
-2. **console.txt:** erste Zeile der Mod ist `[VPGeometryFix] Lua loaded 0.1.3-diag`.
+2. **console.txt:** erste Zeile der Mod ist `[VPGeometryFix] Lua loaded 0.1.4-diag`.
    Fehlt sie, wird die Mod gar nicht geladen (Ordnerstruktur / Mod nicht aktiviert).
    Fehler der Mod erscheinen als `[VPGeometryFix] ERROR in …`.
 3. **Im Spielstand:** das Fenster (unten).
 
 Beim Laden eines Spielstands öffnet sich oben links das Fenster
-**„Viewpoint Geometry Fix 0.1.3-diag“** (verschiebbar, mit X schließbar).
+**„Viewpoint Geometry Fix 0.1.4-diag“** (verschiebbar, mit X schließbar).
 Es zeigt:
 
 ```
@@ -97,6 +97,12 @@ für die Säule z-1 … z+2 (Dächer liegen meist 1–2 Ebenen über dem Spieler
   wall, hid, visib, cutaway, render, overlay, attach, child, dir, north, height,
   solid, flag, prop, name, room, building, outside, light oder ist x/y/z)
 * Zusammenfassung (die TILE-Zeilen) am Ende
+
+Mit Viewpoint enthält jede TILE-Zeile zusätzlich `vpGeom=N(Formen)` und
+`rise=…`: die Tile-Geometrie, die Viewpoint für diesen Sprite verwendet
+(`TileMeshes.geometryFor`), und die Anhebung (`WorldMesher.rise`). Der Bericht
+listet die Formen mit ihren Werten. Klassen der Spiel-Geometrie:
+`VPGF.inventory("zombie.tileDepth.")`.
 
 Alle Felder: `fullDump=true` in `%USERPROFILE%\Zomboid\VPGeometryFix\config.properties`.
 

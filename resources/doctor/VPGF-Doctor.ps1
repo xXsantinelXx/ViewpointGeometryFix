@@ -12,7 +12,7 @@ param(
 )
 
 $ErrorActionPreference = 'Continue'
-$Version = '0.3.0'
+$Version = '0.3.1'
 $ModId = 'ViewpointGeometryFix'
 $Pins = @{
     'e1a69eb743ede60b213a0fe7f8b83d4fcab773036d256cc4543a336f3b058a33' = 'projectzomboid.jar 42.21.0'
@@ -310,6 +310,32 @@ foreach ($m in $workshop) {
 }
 if (-not $vpFound) { Line 'Keine Viewpoint-Mod im Workshop-Ordner gefunden.'; Finding 'Viewpoint nicht gefunden (nur Workshop-Ordner durchsucht).' }
 if ($addons.Count -gt 0) { Line ('Viewpoint-Add-ons im Workshop-Ordner (' + $addons.Count + '): ' + ($addons -join ', ')) }
+
+# ---------------------------------------------------------------- tile geometry data
+# Viewpoint builds near-world tile shapes from the game's tile geometry
+# (TileMeshes.geometryFor -> zombie.tileDepth.TileGeometryFile, [V1] signatures).
+# List the data files that may hold it, in the game and in Workshop mods.
+Section '4b Tile-Geometrie-Daten (Quelle der 3D-Formen)'
+$geoRx = '(?i)(tile.?geometry|tile.?depth|tiledepth|geometry\.txt)'
+$geoFiles = New-Object System.Collections.Generic.List[string]
+if ($pz) {
+    $media = [IO.Path]::Combine($pz, 'media')
+    if (Test-Path -LiteralPath $media) {
+        Get-ChildItem -LiteralPath $media -Recurse -File -ErrorAction SilentlyContinue |
+            Where-Object { $_.FullName.Substring($media.Length) -match $geoRx } |
+            ForEach-Object { $geoFiles.Add(('Spiel: {0} ({1} KB)' -f $_.FullName.Substring($pz.Length).TrimStart('\', '/'), [Math]::Ceiling($_.Length / 1KB))) }
+    }
+}
+$wsRoots = @{}
+foreach ($m in $workshop) { $wsRoots[(Split-Path -Parent $m)] = $true }
+foreach ($root in $wsRoots.Keys) {
+    Get-ChildItem -LiteralPath $root -Recurse -File -ErrorAction SilentlyContinue |
+        Where-Object { $_.FullName.Substring($root.Length) -match $geoRx } |
+        ForEach-Object { $geoFiles.Add(('Mod {0}: {1} ({2} KB)' -f (Split-Path -Leaf $root), $_.FullName.Substring($root.Length).TrimStart('\', '/'), [Math]::Ceiling($_.Length / 1KB))) }
+}
+if ($geoFiles.Count -eq 0) { Line 'Keine Dateien mit tileGeometry/tileDepth im Namen gefunden.' }
+$geoFiles | Sort-Object | Select-Object -First 80 | ForEach-Object { Line $_ }
+if ($geoFiles.Count -gt 80) { Line ('(' + ($geoFiles.Count - 80) + ' weitere ausgelassen)') }
 
 # ---------------------------------------------------------------- this mod
 Section '5 ViewpointGeometryFix (diese Mod)'

@@ -164,13 +164,16 @@ public final class AllTests {
                 contains(rep, "=== z+0 square 10,20,1");
                 contains(rep, "getObjects() count=1");
                 contains(rep, "getSpecialObjects() count=1");
-                contains(rep, "FakeObject sprite=roofs_01_12 kind~ROOF");
+                contains(rep, "FakeObject sprite=roofs_01_12 kind~ROOF vpGeom=2(Polygon,Box) rise=0.25");
+                contains(rep, "viewpoint geometryFor: 2 shape(s)");
+                contains(rep, "Polygon.points : float[] = float[4] {0.0, 0.0, 1.0, 1.0}");
+                contains(rep, "FakeObject sprite=walls_exterior_house_01_0 kind~WALL vpGeom=0 rise=0.25");
                 contains(rep, "FakeObject sprite=walls_exterior_house_01_0 kind~WALL");
                 contains(rep, "z+1: square is null");
                 contains(rep, "View.enabled=false");
                 contains(rep, "FakeObject.alpha : float = 0.5");
                 check(!rep.contains("unrelatedCounter"));
-                contains(LuaBridge.lastSummary(), "TILE 10,20,1 Objects#0 FakeObject sprite=roofs_01_12 kind~ROOF");
+                contains(LuaBridge.lastSummary(), "TILE 10,20,1 Objects#0 FakeObject sprite=roofs_01_12 kind~ROOF vpGeom=2(Polygon,Box)");
             });
             contains(out, "[VPGeometryFix] TILE 10,20,1 Objects#0 FakeObject sprite=roofs_01_12 kind~ROOF");
             contains(out, "[VPGeometryFix] TILE 10,20,1 SpecialObjects#0 FakeObject sprite=walls_exterior_house_01_0 kind~WALL");

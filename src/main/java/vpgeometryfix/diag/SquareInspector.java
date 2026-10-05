@@ -75,7 +75,12 @@ public final class SquareInspector {
             for (int i = 0; i < items.size(); i++) {
                 Object o = items.get(i);
                 String one = compact(o);
+                if (structural) {
+                    String vp = ViewpointGeometry.summary(o);
+                    if (!vp.isEmpty()) one = one + " " + vp;
+                }
                 report.append("  [").append(i).append("] ").append(one).append('\n');
+                if (structural) report.append(ViewpointGeometry.details(o));
                 if (structural) {
                     tileObjects++;
                     summary.add("TILE " + coords + " " + getter.substring(3) + "#" + i + " " + one);

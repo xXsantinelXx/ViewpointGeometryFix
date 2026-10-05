@@ -16,6 +16,13 @@ und Viewpoints Klassen sie bestätigen.
 | D | Motel-Arkaden | Vordach aus einzelnen Kacheln mit **Stufen/Sägezahn** und Lücken statt durchgehender Fläche | Pro-Tile-Neigungen passen an Tile-Grenzen nicht zusammen (Ecken/Übergangs-Sprites) |
 | E | Gelbes Haus, linke Seite | Rechteckiges Wandstück steht vor der Fassade / Wandlücke | Wand-Overlay oder Wandteil mit Versatz |
 
+## Was eine Inspektion jetzt zeigt (Mod 0.1.4-diag)
+
+Jede TILE-Zeile enthält Viewpoints Quellgeometrie, z. B.
+`TILE 101,200,1 Objects#0 IsoObject sprite=roofs_01_12 kind~ROOF spriteType=… vpGeom=2(Polygon,Box) rise=0.0`.
+`vpGeom=0` bei einem Dach-Sprite ⇒ Kandidat für Fehlerbild C (fehlendes Dach).
+Der Bericht enthält zusätzlich die Punkte/Maße jeder Form.
+
 ## Nächste Daten, die gebraucht werden
 
 1. Viewpoint-Klassenliste mit Stichworten (Doctor Abschnitt 4) – um die Klasse
