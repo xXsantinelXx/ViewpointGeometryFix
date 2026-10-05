@@ -6,6 +6,7 @@ import java.lang.reflect.Modifier;
 import java.util.Collection;
 import java.util.IdentityHashMap;
 import java.util.Map;
+import java.util.regex.Pattern;
 
 /**
  * Read-only reflective field dumper.
@@ -22,13 +23,20 @@ public final class ObjectDumper {
     private final int maxDepth;
     private final int maxLines;
     private final int maxElements;
+    private final Pattern fieldFilter;
     private int lines;
 
     public ObjectDumper(String[] expandPrefixes, int maxDepth, int maxLines, int maxElements) {
+        this(expandPrefixes, maxDepth, maxLines, maxElements, null);
+    }
+
+    /** @param fieldFilter if non-null, only fields whose name matches (find) are printed */
+    public ObjectDumper(String[] expandPrefixes, int maxDepth, int maxLines, int maxElements, Pattern fieldFilter) {
         this.expandPrefixes = expandPrefixes;
         this.maxDepth = maxDepth;
         this.maxLines = maxLines;
         this.maxElements = maxElements;
+        this.fieldFilter = fieldFilter;
     }
 
     public String result() {
@@ -67,6 +75,7 @@ public final class ObjectDumper {
             }
             for (Field f : fields) {
                 if (Modifier.isStatic(f.getModifiers()) || f.isSynthetic()) continue;
+                if (fieldFilter != null && !fieldFilter.matcher(f.getName()).find()) continue;
                 Object v;
                 try {
                     f.setAccessible(true);

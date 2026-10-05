@@ -36,7 +36,8 @@ local function event()
   function e.fire(...) for _, f in ipairs(e.list) do f(...) end end
   return e
 end
-Events = { OnGameBoot = event(), OnGameStart = event(), OnKeyPressed = event(), OnTick = event(), OnPostUIDraw = event() }
+Events = { OnGameBoot = event(), OnGameStart = event(), OnKeyPressed = event(), OnTick = event(), OnPostUIDraw = event(),
+  OnFillWorldObjectContextMenu = event() }
 
 MODS = { "\\ZombieBuddy", "\\Viewpoint", "\\ViewpointGeometryFix" }
 function getActivatedMods()
@@ -66,6 +67,41 @@ function getCell()
   end }
 end
 
+-- Minimal ISUI doubles: enough to create the panel and press its buttons.
+function install_isui()
+  ISPanel = {}
+  ISPanel.__index = ISPanel
+  function ISPanel:derive(name) local c = setmetatable({}, { __index = self }); c.__index = c; c.Type = name; return c end
+  function ISPanel:new(x, y, w, h) local o = setmetatable({ x = x, y = y, w = w, h = h, children = {} }, self); return o end
+  function ISPanel:initialise() end
+  function ISPanel:instantiate() self:createChildren() end
+  function ISPanel:createChildren() end
+  function ISPanel:addChild(c) table.insert(self.children, c) end
+  function ISPanel:render() end
+  function ISPanel:drawText(t) table.insert(DRAWN, t) end
+  function ISPanel:getHeight() return self.h end
+  function ISPanel:setHeight(h) self.h = h end
+  function ISPanel:addToUIManager() self.inUI = true end
+  function ISPanel:removeFromUIManager() self.inUI = false end
+  function ISPanel:setVisible(v) self.visible = v end
+  function ISPanel:getIsVisible() return self.visible end
+  ISButton = {}
+  ISButton.__index = ISButton
+  function ISButton:new(x, y, w, h, title, target, onclick)
+    local b = setmetatable({ title = title, target = target, onclick = onclick }, self)
+    table.insert(BUTTONS, b); return b
+  end
+  function ISButton:initialise() end
+  function ISButton:instantiate() end
+  function ISButton:setY(y) self.y = y end
+  function ISButton:click() self.onclick(self.target, self) end
+end
+BUTTONS = {}
+function button(title)
+  for _, b in ipairs(BUTTONS) do if b.title == title then return b end end
+  error("no button " .. title)
+end
+
 function install_java()
   JDEBUG = false
   function VPGF_javaAvailable() return true end
@@ -78,6 +114,8 @@ function install_java()
   function VPGF_reportSquare(sq, label) call("reportSquare", sq and (sq.x .. "," .. sq.y .. "," .. sq.z) or "nil", label) end
   function VPGF_reportEnd() call("reportEnd") return "C:/x/report.txt" end
   function VPGF_inventory(w) call("inventory", w) return "C:/x/inv.txt" end
+  function VPGF_status() return "Java-Teil: OK\nPZ: 42.21.0\nViewpoint: erkannt 0.1.5a-hotfix\nZombieBuddy: 2.3.4" end
+  function VPGF_lastSummary() return "TILE 101,200,0 Objects#0 IsoObject sprite=roofs_01_12 kind~ROOF" end
 end
 """
 
@@ -91,11 +129,13 @@ def check(cond, msg):
         raise Failure(msg)
 
 
-def fresh(with_java):
+def fresh(with_java, with_isui=True):
     lua = lua51.LuaRuntime(unpack_returned_tuples=True)
     lua.execute(MOCKS)
     if with_java:
         lua.execute("install_java()")
+    if with_isui:
+        lua.execute("install_isui()")
     for f in sorted(LUA_DIR.glob("*.lua")):
         lua.execute(f.read_text(encoding="utf-8"))
     return lua
@@ -128,77 +168,98 @@ def t_startup_with_java():
     check(c == [["startupReport", "42.21.0", True, "\\Viewpoint"]], f"bridge call mismatch: {c}")
 
 
-def t_keybindings_registered():
+def drawn(lua):
+    return list(lua.eval("DRAWN").values())
+
+
+def t_keybindings_optional_and_unbound():
     lua = fresh(False)
-    vals = [e["value"] for e in lua.eval("keyBinding").values()]
-    check(vals == ["[VPGeometryFix]", "VPGF Toggle Debug", "VPGF Inspect Target", "VPGF Hover Mode",
-                   "VPGF Class Inventory"], f"keyBinding: {vals}")
-    keys = [e["key"] for e in list(lua.eval("keyBinding").values())[1:]]
-    check(keys == [199, 207, 201, 209], f"defaults: {keys}")
+    entries = list(lua.eval("keyBinding").values())
+    check([e["value"] for e in entries] == ["[VPGeometryFix]", "VPGF Panel", "VPGF Inspect Target"], "entries")
+    check([e["key"] for e in entries[1:]] == [0, 0], "no default keys (F-keys etc. belong to PZ debug)")
+    lua.execute("for k = 1, 255 do Events.OnKeyPressed.fire(k) end")
+    check(calls(lua) == [] and out(lua) == [], "no key does anything by default")
 
 
-def t_debug_gate_and_feedback():
+def t_panel_at_game_start():
     lua = fresh(True)
-    lua.execute("Events.OnKeyPressed.fire(Keyboard.KEY_END)")
-    check(calls(lua) == [], "inspect must be ignored while debug is off")
-    check(any("Debug ist AUS" in l for l in out(lua)), f"should explain why: {out(lua)}")
-    lua.execute("Events.OnPostUIDraw.fire()")
-    check(any("Debug ist AUS" in t for t in lua.eval("DRAWN").values()), "message drawn on screen")
-    lua.execute("NOW = 10000; Events.OnPostUIDraw.fire()")
-    check(lua.eval("#Events.OnPostUIDraw.list") == 0, "overlay removed after message expires (no cost)")
+    lua.execute("Events.OnGameBoot.fire(); Events.OnGameStart.fire()")
+    check(len(out(lua)) == 0, f"Java prints the startup block, Lua adds nothing: {out(lua)}")
+    lua.execute("BUTTONS[1].target:render()")
+    d = drawn(lua)
+    check(d[0] == "Viewpoint Geometry Fix 0.1.2-diag", f"title: {d}")
+    check("Viewpoint: erkannt 0.1.5a-hotfix" in d and "Diagnose: AUS" in d, f"status: {d}")
+    check(any("Diagnose AN" in t for t in d), f"hint: {d}")
 
 
-def t_inspect_sequence():
+def t_panel_buttons_inspect():
     lua = fresh(True)
-    lua.execute("Events.OnKeyPressed.fire(Keyboard.KEY_HOME)")
-    check(lua.eval("#Events.OnPostUIDraw.list") == 1, "overlay on while debug on")
-    lua.execute("Events.OnKeyPressed.fire(Keyboard.KEY_END)")
+    lua.execute("Events.OnGameStart.fire(); CALLS = {}")
+    lua.execute('button("Tile untersuchen"):click()')
+    check(calls(lua) == [], f"inspect blocked while diagnose is off: {calls(lua)}")
+    lua.execute('button("Diagnose AN"):click()')
+    lua.execute('BUTTONS[1].target:render()')
+    lua.execute('button("Tile untersuchen"):click()')
     c = calls(lua)
-    check(c[0] == ["setDebug", True], f"debug toggle: {c}")
-    # first person -> facing target: floor(100.5 + 1) = 101, floor(200.5) = 200
-    check(c[1] == ["reportBegin", "facing+1", 101, 200, 0], f"begin: {c[1]}")
-    labels = [x[2] for x in c[2:6]]
-    check(labels == ["z-1", "z+0", "z+1", "z+2"], f"column labels: {labels}")
-    check(c[3][1] == "101,200,0", f"square coords: {c[3]}")
-    check(c[6] == ["reportEnd"], f"end: {c[6]}")
-    lua.execute("Events.OnPostUIDraw.fire()")
-    drawn = list(lua.eval("DRAWN").values())
-    check(any("VPGeometryFix DEBUG" in t for t in drawn), f"debug banner: {drawn}")
-    check(any("report.txt" in t for t in drawn), f"report path on screen: {drawn}")
+    check(c[0] == ["setDebug", True], f"debug: {c}")
+    # facing target: floor(100.5 + 1) = 101, floor(200.5) = 200
+    check(c[1] == ["reportBegin", "vor dem Spieler", 101, 200, 0], f"begin: {c[1]}")
+    check([x[2] for x in c[2:6]] == ["z-1", "z+0", "z+1", "z+2"], f"column: {c}")
+    check(c[6] == ["reportEnd"], f"end: {c}")
+    lua.execute("DRAWN = {}; BUTTONS[1].target:render()")
+    d = drawn(lua)
+    check("TILE 101,200,0 Objects#0 IsoObject sprite=roofs_01_12 kind~ROOF" in d, f"result in panel: {d}")
+    check("Bericht: C:/x/report.txt" in d, f"report path: {d}")
+    check(out(lua) == [], f"Lua must not add console lines when Java is present: {out(lua)}")
+
+
+def t_pin_target_and_close():
+    lua = fresh(True)
+    lua.execute('VPGF.setDebug(true); Events.OnGameStart.fire(); VPGF.setTarget(5.9, 6.1, 1); VPGF.inspect()')
+    check(["reportBegin", "fixiertes Ziel", 5, 6, 1] in calls(lua), f"pinned: {calls(lua)}")
+    lua.execute("BUTTONS[1].target:render()")
+    lua.execute('button("Ziel loesen"):click(); button("X"):click()')
+    check(lua.eval("BUTTONS[1].target.inUI") is False, "X closes the panel")
+
+
+def t_context_menu():
+    lua = fresh(True)
+    lua.execute("""
+      OPTS = {}
+      local ctx = { addOption = function(self, name, target, fn) table.insert(OPTS, {name = name, fn = fn}); return {} end }
+      local sq = { getX = function() return 7 end, getY = function() return 8 end, getZ = function() return 2 end }
+      local obj = { getSquare = function() return sq end }
+      VPGF.setDebug(true)
+      Events.OnFillWorldObjectContextMenu.fire(0, ctx, { obj }, false)
+      for _, o in ipairs(OPTS) do if string.find(o.name, "untersuchen", 1, true) then o.fn() end end
+    """)
+    names = [o["name"] for o in lua.eval("OPTS").values()]
+    check("Dieses Tile untersuchen (7,8,2)" in names, f"menu: {names}")
+    check(["reportBegin", "Rechtsklick", 7, 8, 2] in calls(lua), f"inspect via menu: {calls(lua)}")
+
+
+def t_fallback_overlay_without_isui():
+    lua = fresh(False, with_isui=False)
+    lua.execute("Events.OnGameStart.fire(); Events.OnPostUIDraw.fire()")
+    d = drawn(lua)
+    check(any("Java-Teil: NICHT geladen" in t for t in d), f"overlay shows missing Java: {d}")
+    lua.execute("VPGF.hidePanel()")
+    check(lua.eval("#Events.OnPostUIDraw.list") == 0, "overlay removed when closed")
+
+
+def t_hover_updates_panel_only():
+    lua = fresh(True)
+    lua.execute('VPGF.setDebug(true); VPGF.setHover(true)')
+    check(lua.eval("#Events.OnTick.list") == 1, "hover adds OnTick")
+    lua.execute("for i = 1, 20 do Events.OnTick.fire() end; VPGF.setDebug(false)")
+    check(out(lua) == [], f"hover must not log: {out(lua)}")
+    check(lua.eval("#Events.OnTick.list") == 0, "hover removed when diagnose turns off")
 
 
 def t_rebind_from_options():
     lua = fresh(True)
-    lua.execute('BOUND["VPGF Toggle Debug"] = 59; Events.OnKeyPressed.fire(Keyboard.KEY_HOME)')
-    check(calls(lua) == [], "old default must not fire after rebinding")
-    lua.execute("Events.OnKeyPressed.fire(59)")
-    check(calls(lua) == [["setDebug", True]], f"rebound key: {calls(lua)}")
-
-
-def t_pinned_target_and_inventory():
-    lua = fresh(True)
-    lua.execute("VPGF.setDebug(true); VPGF.setTarget(5.9, 6.1, 1); VPGF.inspect(); VPGF.inventory()")
-    c = calls(lua)
-    check(["reportBegin", "pinned", 5, 6, 1] in c, f"pinned: {c}")
-    check(c[-1] == ["inventory", "viewpoint"], f"inventory: {c}")
-
-
-def t_hover_toggle():
-    lua = fresh(True)
-    lua.execute("VPGF.setDebug(true); Events.OnKeyPressed.fire(Keyboard.KEY_PRIOR)")
-    check(lua.eval("#Events.OnTick.list") == 1, "hover adds OnTick")
-    lua.execute("for i = 1, 20 do Events.OnTick.fire() end")
-    check(any(l.startswith("[VPGeometryFix] hover facing+1 101,200,0: [0] Roof:roofs_01_12") for l in out(lua)),
-          f"hover summary: {out(lua)}")
-    lua.execute("Events.OnKeyPressed.fire(Keyboard.KEY_HOME)")  # debug off also stops hover
-    check(lua.eval("#Events.OnTick.list") == 0, "hover removed when debug turns off")
-
-
-def t_game_start_message():
-    lua = fresh(False)
-    lua.execute("Events.OnGameStart.fire(); Events.OnPostUIDraw.fire()")
-    drawn = list(lua.eval("DRAWN").values())
-    check(any("aktiv (OHNE Java-Teil)" in t and "K199" in t for t in drawn), f"start message: {drawn}")
+    lua.execute('Events.OnGameStart.fire(); BOUND["VPGF Panel"] = 25; Events.OnKeyPressed.fire(25)')
+    check(lua.eval("BUTTONS[1].target.inUI") is False, "bound key toggles the panel")
 
 
 def main():

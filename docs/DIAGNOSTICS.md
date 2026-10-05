@@ -1,117 +1,130 @@
-# Diagnose-Handbuch
+# Diagnose-Handbuch (0.1.2-diag)
 
-## Startblock
+## Ist die Mod aktiv?
 
-Beim Spielstart (Lua `OnGameBoot`, also nachdem alle Mods inkl. Viewpoint
-geladen sind) erscheint in `%USERPROFILE%\Zomboid\console.txt` genau einmal:
+Beim Laden eines Spielstands öffnet sich oben links das Fenster
+**„Viewpoint Geometry Fix 0.1.2-diag“** (verschiebbar, mit X schließbar).
+Es zeigt:
 
 ```
-[VPGeometryFix] Java component loaded via ZombieBuddy (debug=false, source=default)   ← früher, beim Laden des JARs
-...
-[VPGeometryFix] Loaded
-[VPGeometryFix] PZ version: 42.21.0 [projectzomboid.jar: projectzomboid.jar 42.21.0]
-[VPGeometryFix] Viewpoint detected: yes (version: mod.info modversion=…, jar sha256=94fedda302ab... (Viewpoint 0.1.5a-hotfix); mod id=Viewpoint; activated in mod list=true)
-[VPGeometryFix] ZombieBuddy detected: yes (version 2.3.4, javaagent=true, jar: not an audited build)
-[VPGeometryFix] Debug mode: OFF (source: default)
+Java-Teil: OK                         ← rot „NICHT geladen“, wenn ZombieBuddy das JAR nicht lädt
+PZ: 42.21.0
+Viewpoint: erkannt 0.1.5a-hotfix (auditierter Build)
+ZombieBuddy: 2.3.4
+Diagnose: AUS
+[Diagnose AN] [Tile untersuchen] [Ziel fixieren] [Hover AN] [Inventar] [X]
 ```
 
-Mit Debug an kommen `[VPGeometryFix] [debug] …`-Zeilen mit Pfaden und
-vollständigen SHA-256-Werten dazu.
+Erscheint das Fenster nicht, ist die Mod in diesem Spielstand nicht aktiv
+(B42: Mod-Liste pro Spielstand prüfen). Falls die Spiel-UI-Klassen
+`ISPanel`/`ISButton` nicht verfügbar sind, erscheint derselbe Text als
+einfache Einblendung ohne Schaltflächen.
 
-Fehlt die Java-Zeile, aber der Block erscheint mit `(from Lua)` /
-`Java part NOT loaded`, hat ZombieBuddy das JAR nicht geladen (nicht
-freigegeben, ZB < 2.3.4 ohne 42.21-Fix, oder ZB fehlt).
+Fenster wieder öffnen: **Rechtsklick in die Welt → VPGeometryFix → Fenster öffnen**
+oder in der Debug-Konsole `VPGF.showPanel()`.
+
+## Bedienung – keine Standard-Tasten
+
+Die Debug-Version von Project Zomboid belegt F-Tasten und weitere Tasten
+selbst. Deshalb hat die Mod **keine voreingestellten Tasten**.
+
+| Weg | Wirkung |
+|---|---|
+| Fenster-Schaltflächen | Diagnose an/aus, Tile vor dem Spieler (bzw. fixiertes Ziel) untersuchen, Ziel fixieren/lösen, Hover, Viewpoint-Klasseninventar |
+| Rechtsklick in die Welt → VPGeometryFix | Fenster öffnen; „Dieses Tile untersuchen (x,y,z)“; „Dieses Tile als Ziel fixieren“ |
+| Optionen → Tastenbelegung → `[VPGeometryFix]` | optional selbst belegen: „VPGF Panel“ (Fenster ein/aus), „VPGF Inspect Target“ |
+| Debug-Konsole (PZ mit `-debug`) | `VPGF.showPanel()`, `VPGF.setDebug(true)`, `VPGF.inspect()`, `VPGF.inspectAt(x,y,z)`, `VPGF.setTarget(x,y,z)`, `VPGF.clearTarget()`, `VPGF.inventory("viewpoint"\|"game")`, `VPGF.viewpointState()`, `VPGF.dumpStatics("viewpoint.core.View")` |
+
+In der Viewpoint-First-Person-Ansicht ist die Maus gefangen. Zum Klicken mit
+**O** in die normale Ansicht wechseln, dann zurück. Das „Tile vor dem Spieler“
+bleibt dabei dasselbe; ein fixiertes Ziel sowieso.
+
+## Was wird geloggt (bewusst wenig)
+
+**console.txt** bekommt nur:
+
+1. den Startblock (einmal pro Spielstart):
+   ```
+   [VPGeometryFix] Loaded
+   [VPGeometryFix] PZ version: 42.21.0 [projectzomboid.jar: projectzomboid.jar 42.21.0]
+   [VPGeometryFix] Viewpoint detected: yes (version: …; mod id=Viewpoint; activated in mod list=true)
+   [VPGeometryFix] ZombieBuddy detected: yes (version 2.3.4, javaagent=true, jar: …)
+   [VPGeometryFix] Debug mode: OFF (source: default)
+   ```
+2. pro Untersuchung je Objekt eine Zeile plus den Berichtspfad:
+   ```
+   [VPGeometryFix] TILE 101,200,1 Objects#0 IsoObject sprite=roofs_01_12 kind~ROOF spriteType=WestRoofB
+   [VPGeometryFix] TILE 101,200,2 empty
+   [VPGeometryFix] report -> C:\Users\…\Zomboid\VPGeometryFix\inspect\inspect_…_101_200_0.txt
+   ```
+3. Fehler.
+
+Pfade, SHA-256-Werte, JVM-Version usw. stehen nur in
+`%USERPROFILE%\Zomboid\VPGeometryFix\VPGeometryFix.log`. Hover schreibt
+nichts ins Log, nur ins Fenster.
 
 Kurzfilter (PowerShell):
 ```powershell
 Select-String -Path "$env:USERPROFILE\Zomboid\console.txt" -Pattern '\[VPGeometryFix\]'
 ```
 
-## Tasten (einzeln, ohne Strg/Umschalt; änderbar unter Optionen → Tastenbelegung → `[VPGeometryFix]`)
-
-| Standardtaste | Wirkung | braucht Debug |
-|---|---|---|
-| Pos1 / Home | Debug-Modus an/aus | nein |
-| Ende / End | Ziel inspizieren → Bericht-Datei | ja |
-| Bild↑ / PageUp | Hover-Modus an/aus (Zusammenfassung bei Zielwechsel) | ja |
-| Bild↓ / PageDown | Viewpoint-Klasseninventar schreiben | ja |
-
-Rückmeldung erscheint oben links auf dem Bildschirm (zusätzlich in
-console.txt). Beim Betreten eines Spielstands zeigt die Mod 10 Sekunden lang
-„VPGeometryFix: aktiv …“ – fehlt diese Meldung, ist die Mod in diesem
-Spielstand nicht aktiv (B42: Mods pro Spielstand prüfen). Bei aktivem Debug
-steht oben links dauerhaft ein gelber Hinweis mit den Tasten.
-
-Hinweis 0.1.0-diag: Dort waren es Strg+Umschalt+F8…F11. Diese Abfrage
-(`isCtrlKeyDown`/`isShiftKeyDown`) war für 42.21 unverifiziert und hat beim
-Nutzer nicht reagiert; ab 0.1.1-diag wird das in 42.21 belegte
-PeekAView-Muster (`keyBinding`-Tabelle + `getCore():getKey`) verwendet.
-
-Debug dauerhaft: `%USERPROFILE%\Zomboid\VPGeometryFix\config.properties`
-mit `debug=true`, oder Startoption `-Dvpgf.debug=true`.
-
-## Ziel (welches Tile wird untersucht?)
-
-1. **Gepinnt**: `VPGF.setTarget(x, y, z)` – reproduzierbar, empfohlen für
-   Fehlerberichte. `VPGF.clearTarget()` hebt auf.
-2. **Viewpoint-Fadenkreuz**: noch **nicht** verfügbar – Viewpoints Pick-Ergebnis
-   (`MousePick.read`) ist in seiner Speicherung unbekannt
-   (`ViewpointProbe.pickedTarget()` ist ein Platzhalter).
-3. **Maus**: nur wenn Viewpoint die First-Person-Ansicht **nicht** aktiv hat
-   (`View.enabled=false`).
-4. **Blickrichtung**: Tile `VPGF.facingDistance` (Standard 1) vor dem Spieler.
-
-Untersucht wird immer eine Säule `z-1 … z+2` (`VPGF.columnBelow/Above`),
-weil Dächer meist 1–2 Ebenen über dem Spieler liegen.
-
-Koordinaten eines Tiles findet man z. B. im Vanilla-Debugmodus
-(`-debug`) oder per `VPGF.inspect()` mit Blickrichtung und dann Pinnen.
-
 ## Bericht
 
-`%USERPROFILE%\Zomboid\VPGeometryFix\inspect\inspect_<Zeit>_<x>_<y>_<z>.txt`:
+`%USERPROFILE%\Zomboid\VPGeometryFix\inspect\inspect_<Zeit>_<x>_<y>_<z>.txt`
+für die Säule z-1 … z+2 (Dächer liegen meist 1–2 Ebenen über dem Spieler):
 
-* Kopf: Zeit, Grund/Quelle, Ziel, PZ-Version, Viewpoint-Version, Viewpoint-Status
+* Kopf: Zeit, Quelle, Ziel, PZ- und Viewpoint-Version, Viewpoint-Status
   (`View.enabled`, `ThirdPerson.active`, `FreeCam.active`, `IrisPacks.active`, `Rooms.hiding`)
-* je Ebene: `getObjects()`, `getSpecialObjects()`, `getMovingObjects()`,
-  `getStaticMovingObjects()`, `getWorldObjects()` mit
-  * Klasse + Sprite-Name + heuristische Art (`kind~ROOF|WALL|FLOOR|…`)
-  * vollständigem Feld-Dump (Sprite, Properties, Texture bis Tiefe 2)
-* alle Felder des `IsoGridSquare`
+* je Ebene alle Objekte (`getObjects`, `getSpecialObjects`, bewegliche/Welt-Objekte
+  nur als Anzahl in der Konsole) mit Klasse, Sprite, heuristischer Art, Sprite-Typ
+* **nur render-relevante Felder** (Name enthält alpha, offset, sprite, type, roof,
+  wall, hid, visib, cutaway, render, overlay, attach, child, dir, north, height,
+  solid, flag, prop, name, room, building, outside, light oder ist x/y/z)
+* Zusammenfassung (die TILE-Zeilen) am Ende
 
-Die Konsole erhält eine Zusammenfassung pro Ebene.
+Alle Felder: `fullDump=true` in `%USERPROFILE%\Zomboid\VPGeometryFix\config.properties`.
 
 ## Reproduzierbares Vorgehen für einen Fehlerfall
 
-1. Viewpoint-, ZB- und Spielversion aus dem Startblock notieren.
-2. Im First-Person zum fehlerhaften Dach/zur Wand gehen; Pos1 (Debug an).
-3. `VPGF.inspect()` (Ende) mit Blick auf das Objekt; Koordinaten aus der
-   Konsolenzeile `inspect target X,Y,Z` notieren.
-4. `VPGF.setTarget(X, Y, Z)` und aus mehreren Positionen/Blickwinkeln Ende –
-   gleiche Säule, verschiedene Viewpoint-Zustände.
-5. Zum Vergleich mit `O` in die isometrische Ansicht wechseln und erneut Ende.
-6. Ein Fehlerbericht enthält: Startblock, Koordinaten, Screenshot FP und
-   isometrisch, die Berichtsdateien.
+1. Startblock (oder Fensterkopf) notieren: PZ-, Viewpoint-, ZB-Version.
+2. In First-Person vor das fehlerhafte Dach / die Wand stellen, Blick darauf.
+3. Mit **O** in die normale Ansicht, im Fenster **Diagnose AN**, dann
+   **Ziel fixieren** (fixiert das Tile vor dem Spieler) – oder direkt
+   Rechtsklick auf das Tile → „Dieses Tile als Ziel fixieren“.
+4. **Tile untersuchen**. Zurück in First-Person (O), aus anderen Positionen/
+   Blickwinkeln erneut untersuchen (über eine selbst belegte Taste oder
+   kurz O → Klick → O).
+5. Fehlerbericht: Startblock, Koordinaten, Screenshot FP und isometrisch,
+   die Berichtsdateien.
 
 ## Klassen-Inventar
 
-Bild↓/PageDown bzw. `VPGF.inventory("viewpoint")` /
+Schaltfläche **Inventar** bzw. `VPGF.inventory("viewpoint")` /
 `VPGF.inventory("game")` (Paket `zombie.iso.`) schreibt nach
 `…\VPGeometryFix\inventory\`. Enthält nur Klassennamen und
-Methoden-/Feldsignaturen (kein Bytecode). Klassen werden dafür ohne
+Methoden-/Feldsignaturen (kein Bytecode); Klassen werden ohne
 Initialisierung geladen. **Diese Dateien beschreiben proprietären Code –
 nicht veröffentlichen, nicht ins Repo committen** (`local/` ist ignoriert).
 
-Gezielt Statik-Felder einer Klasse ansehen:
-`VPGF.dumpStatics("viewpoint.visibility.Rooms")`.
+## Debug-Modus dauerhaft
+
+`config.properties` mit `debug=true` oder Startoption `-Dvpgf.debug=true`.
+„Diagnose AN/AUS“ im Fenster schaltet denselben Modus zur Laufzeit.
 
 ## Einschränkungen
 
-* Das Lesen statischer Viewpoint-Felder initialisiert die Klasse, falls sie es
-  noch nicht war. Deshalb nur auf Tastendruck, nie beim Start.
-* Die Art-Klassifikation basiert nur auf Namen; sie sagt nichts darüber, wie
-  Viewpoint das Objekt einordnet.
-* Lua-Mock-Tests (tests/lua) beweisen nicht, dass die echte Spiel-API identisch
-  reagiert; die Spiel-API-Aufrufe sind deshalb alle mit `pcall` abgesichert.
-* Nicht im Spiel getestet (in dieser Umgebung nicht möglich). Erster
-  In-Game-Lauf durch den Nutzer steht aus.
+* Viewpoints eigenes Fadenkreuz-Ziel ist noch unbekannt [U]; es wird das
+  Tile vor dem Spieler bzw. ein fixiertes/angeklicktes Ziel untersucht.
+* Lesen statischer Viewpoint-Felder initialisiert die Klasse, falls nötig –
+  deshalb nur bei einer Untersuchung, nie beim Start.
+* Die Art-Klassifikation basiert nur auf Namen.
+* `ISPanel`/`ISButton`/`ISContextMenu`/`OnFillWorldObjectContextMenu` sind
+  Vanilla-UI-API, für 42.21 aber nicht von uns verifiziert [H]; alle Aufrufe
+  sind abgesichert, mit Text-Einblendung als Rückfall.
+* Lua-Tests laufen gegen nachgebaute Spielfunktionen, nicht gegen das Spiel.
+
+## Versionshistorie der Bedienung
+
+* 0.1.0: Strg+Umschalt+F8…F11 – reagierte nicht (Modifier-Abfrage für 42.21 unverifiziert).
+* 0.1.1: Pos1/Ende/Bild↑/Bild↓ – kollidiert mit Tasten der PZ-Debug-Version.
+* 0.1.2: Fenster + Rechtsklick-Menü, Tasten nur optional und unbelegt; Logs reduziert.

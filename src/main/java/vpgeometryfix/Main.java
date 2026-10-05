@@ -18,7 +18,7 @@ public final class Main {
     public static void main(String[] args) {
         try {
             Config.load();
-            Log.info("Java component loaded via ZombieBuddy (debug=" + Config.isDebug() + ", source=" + Config.source() + ")");
+            Log.fileOnly("Java component loaded via ZombieBuddy (debug=" + Config.isDebug() + ", source=" + Config.source() + ")");
         } catch (Throwable t) {
             System.out.println(Log.PREFIX + "ERROR Java init failed: " + t);
         }

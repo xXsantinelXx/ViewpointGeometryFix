@@ -40,6 +40,7 @@ public final class FakeSquare {
     public static final class FakeObject {
         public FakeSprite sprite;
         public float alpha = 0.5f;
+        public int unrelatedCounter = 42;
         public FakeObject(String spriteName) { sprite = new FakeSprite(spriteName); }
         public FakeSprite getSprite() { return sprite; }
     }

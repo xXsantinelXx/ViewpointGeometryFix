@@ -9,6 +9,7 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.regex.Pattern;
 
 /**
  * Collects read-only information about IsoGridSquares / IsoObjects handed in
@@ -31,6 +32,11 @@ public final class SquareInspector {
     private static StringBuilder report;
     private static final List<String> summary = new ArrayList<>();
     private static String fileTag;
+    private static String lastSummary = "";
+    /** Field names worth looking at for render problems; everything else is noise. */
+    static final Pattern RELEVANT = Pattern.compile(
+            "(?i)(alpha|offset|sprite|type|roof|wall|hid|visib|cutaway|render|overlay|attach|child|dir|north|height"
+                    + "|solid|flag|prop|name|room|building|outside|light|^[xyz]$)");
 
     private SquareInspector() {}
 
@@ -53,48 +59,57 @@ public final class SquareInspector {
         if (report == null) begin("implicit", -1, -1, -1);
         if (square == null) {
             report.append("=== ").append(label).append(": square is null (not loaded / out of range)\n\n");
-            summary.add(label + ": no square");
+            summary.add("TILE " + label + " not loaded");
             return;
         }
         String coords = Reflect.call(square, "getX") + "," + Reflect.call(square, "getY") + "," + Reflect.call(square, "getZ");
         report.append("=== ").append(label).append(" square ").append(coords).append(" (")
                 .append(ObjectDumper.ref(square)).append(")\n");
-        StringBuilder sline = new StringBuilder(label + " " + coords + ":");
+        boolean full = fullDump();
+        int tileObjects = 0;
         for (String getter : SAFE_GETTERS) {
             List<Object> items = asList(Reflect.call(square, getter));
-            report.append("--- ").append(getter).append("() count=").append(items == null ? "n/a" : items.size()).append('\n');
-            if (items == null) continue;
+            if (items == null || items.isEmpty()) continue;
+            boolean structural = getter.equals("getObjects") || getter.equals("getSpecialObjects");
+            report.append("--- ").append(getter).append("() count=").append(items.size()).append('\n');
             for (int i = 0; i < items.size(); i++) {
                 Object o = items.get(i);
-                String one = describeObject(o);
+                String one = compact(o);
                 report.append("  [").append(i).append("] ").append(one).append('\n');
-                if (getter.equals("getObjects") || getter.equals("getSpecialObjects")) sline.append(" [").append(i).append("] ").append(one).append(';');
-                ObjectDumper d = new ObjectDumper(EXPAND, 2, 600, 12);
+                if (structural) {
+                    tileObjects++;
+                    summary.add("TILE " + coords + " " + getter.substring(3) + "#" + i + " " + one);
+                }
+                ObjectDumper d = full ? new ObjectDumper(EXPAND, 2, 600, 12)
+                        : new ObjectDumper(EXPAND, 2, 120, 8, RELEVANT);
                 d.dump("      ", o, 0);
                 report.append(d.result());
             }
+            if (!structural) summary.add("TILE " + coords + " " + getter.substring(3) + " count=" + items.size());
         }
-        report.append("--- square fields\n");
-        ObjectDumper d = new ObjectDumper(new String[0], 0, 400, 8);
+        if (tileObjects == 0) summary.add("TILE " + coords + " empty");
+        report.append("--- square fields").append(full ? "" : " (render-relevant only; config fullDump=true for all)").append('\n');
+        ObjectDumper d = full ? new ObjectDumper(new String[0], 0, 400, 8) : new ObjectDumper(new String[0], 0, 120, 8, RELEVANT);
         d.dump("  ", square, 0);
         report.append(d.result()).append('\n');
-        summary.add(sline.toString());
     }
 
     public static synchronized void addObject(Object obj, String label) {
         if (report == null) begin("implicit", -1, -1, -1);
-        report.append("=== ").append(label).append(" object ").append(obj == null ? "null" : describeObject(obj)).append('\n');
+        report.append("=== ").append(label).append(" object ").append(obj == null ? "null" : compact(obj)).append('\n');
         if (obj != null) {
-            ObjectDumper d = new ObjectDumper(EXPAND, 2, 800, 12);
+            ObjectDumper d = fullDump() ? new ObjectDumper(EXPAND, 2, 800, 12) : new ObjectDumper(EXPAND, 2, 160, 8, RELEVANT);
             d.dump("  ", obj, 0);
             report.append(d.result()).append('\n');
-            summary.add(label + ": " + describeObject(obj));
+            summary.add("OBJECT " + label + " " + compact(obj));
         }
     }
 
-    /** Writes the report; returns the file path, or null on failure. Logs a short summary. */
+    /** Writes the report; returns the file path, or null on failure. Logs one line per tile object. */
     public static synchronized String end() {
         if (report == null) return null;
+        report.append("--- summary\n");
+        for (String s : summary) report.append(s).append('\n');
         Path dir = Paths.outputDir().resolve("inspect");
         Path file = dir.resolve("inspect_" + fileTag + ".txt");
         String result;
@@ -106,18 +121,32 @@ public final class SquareInspector {
             Log.error("cannot write inspection report", e);
             result = null;
         }
-        for (String s : summary) Log.info("inspect " + s);
-        Log.info("inspect report: " + (result == null ? "<not written>" : result));
+        for (String s : summary) Log.info(s);
+        Log.info("report -> " + (result == null ? "<not written>" : result));
+        lastSummary = String.join("\n", summary);
         report = null;
         return result;
     }
 
-    static String describeObject(Object o) {
+    public static synchronized String lastSummary() {
+        return lastSummary;
+    }
+
+    static boolean fullDump() {
+        return Boolean.parseBoolean(Config.get("fullDump", "false"));
+    }
+
+    /** One line per object: class, sprite, heuristic kind, sprite type (IsoObjectType) if readable. */
+    static String compact(Object o) {
         if (o == null) return "null";
         String cls = o.getClass().getSimpleName();
         String sprite = spriteName(o);
-        Classifier.Kind kind = Classifier.classify(cls, sprite);
-        return cls + " sprite=" + sprite + " kind~" + kind;
+        StringBuilder sb = new StringBuilder(cls).append(" sprite=").append(sprite)
+                .append(" kind~").append(Classifier.classify(cls, sprite));
+        Object spr = Reflect.call(o, "getSprite");
+        Object type = spr == null ? null : Reflect.field(spr, "type");
+        if (type != null) sb.append(" spriteType=").append(type);
+        return sb.toString();
     }
 
     static String spriteName(Object o) {
