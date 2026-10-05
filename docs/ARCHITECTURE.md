@@ -24,7 +24,8 @@
 ```
 Lua  (media/lua/client/VPGeometryFix_Main.lua)
  ├─ Events.OnGameBoot  → Startblock (einmal)
- ├─ Events.OnKeyPressed → Strg+Umschalt+F8/F9/F10/F11
+ ├─ Events.OnKeyPressed → Tasten aus Optionen > Tastenbelegung (keyBinding + getCore():getKey)
+ ├─ Bildschirm-Overlay (OnPostUIDraw) nur solange Debug an / Meldung sichtbar
  ├─ Zielermittlung: gepinnt > Viewpoint-Pick [U, TODO] > Maus (nur isometrisch) > Blickrichtung
  ├─ Hover-Modus: OnTick nur solange aktiv, gedrosselt, nur bei Zielwechsel
  └─ Fallback ohne Java: Startblock + Lua-Zusammenfassung

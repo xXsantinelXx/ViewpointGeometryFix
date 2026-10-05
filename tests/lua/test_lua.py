@@ -20,7 +20,15 @@ CALLS = {}
 function print(s) table.insert(OUT, tostring(s)) end
 local function call(name, ...) table.insert(CALLS, {name, ...}) end
 
-Keyboard = { KEY_F8 = 66, KEY_F9 = 67, KEY_F10 = 68, KEY_F11 = 87 }
+Keyboard = { KEY_HOME = 199, KEY_END = 207, KEY_PRIOR = 201, KEY_NEXT = 209,
+  getKeyName = function(c) return "K" .. c end }
+keyBinding = {}
+BOUND = {}  -- user rebinds: name -> code
+UIFont = { Small = 1 }
+DRAWN = {}
+function getTextManager() return { DrawString = function(self, f, x, y, t) table.insert(DRAWN, t) end } end
+NOW = 0
+function getTimestampMs() return NOW end
 local function event()
   local e = { list = {} }
   function e.Add(f) table.insert(e.list, f) end
@@ -28,18 +36,20 @@ local function event()
   function e.fire(...) for _, f in ipairs(e.list) do f(...) end end
   return e
 end
-Events = { OnGameBoot = event(), OnGameStart = event(), OnKeyPressed = event(), OnTick = event() }
+Events = { OnGameBoot = event(), OnGameStart = event(), OnKeyPressed = event(), OnTick = event(), OnPostUIDraw = event() }
 
 MODS = { "\\ZombieBuddy", "\\Viewpoint", "\\ViewpointGeometryFix" }
 function getActivatedMods()
   return { size = function(self) return #MODS end, get = function(self, i) return MODS[i + 1] end }
 end
-local core = { getVersion = function(self) return "42.21.0" end }
+local core = { getVersion = function(self) return "42.21.0" end,
+  getKey = function(self, name)
+    if BOUND[name] then return BOUND[name] end
+    for _, e in ipairs(keyBinding) do if e.value == name then return e.key end end
+    return 0
+  end }
 function getCore() return core end
 
-CTRL, SHIFT = false, false
-function isCtrlKeyDown() return CTRL end
-function isShiftKeyDown() return SHIFT end
 
 local vec = { getX = function(self) return 1 end, getY = function(self) return 0 end }
 PLAYER = {
@@ -108,7 +118,7 @@ def t_startup_without_java():
                 "[VPGeometryFix] ZombieBuddy detected: no", "[VPGeometryFix] Debug mode: OFF (Lua only)"]
     check(lines == expected, f"fallback block mismatch: {lines}")
     lua.execute("Events.OnGameStart.fire()")
-    check(len(out(lua)) == 5, "startup block must print only once")
+    check(sum(1 for l in out(lua) if l == "[VPGeometryFix] Loaded") == 1, "startup block must print only once")
 
 
 def t_startup_with_java():
@@ -118,19 +128,31 @@ def t_startup_with_java():
     check(c == [["startupReport", "42.21.0", True, "\\Viewpoint"]], f"bridge call mismatch: {c}")
 
 
-def t_hotkeys_gated():
+def t_keybindings_registered():
+    lua = fresh(False)
+    vals = [e["value"] for e in lua.eval("keyBinding").values()]
+    check(vals == ["[VPGeometryFix]", "VPGF Toggle Debug", "VPGF Inspect Target", "VPGF Hover Mode",
+                   "VPGF Class Inventory"], f"keyBinding: {vals}")
+    keys = [e["key"] for e in list(lua.eval("keyBinding").values())[1:]]
+    check(keys == [199, 207, 201, 209], f"defaults: {keys}")
+
+
+def t_debug_gate_and_feedback():
     lua = fresh(True)
-    lua.execute("Events.OnKeyPressed.fire(Keyboard.KEY_F10)")  # no modifiers
-    check(calls(lua) == [], "key without Ctrl+Shift must do nothing")
-    lua.execute("CTRL, SHIFT = true, true; Events.OnKeyPressed.fire(Keyboard.KEY_F10)")
+    lua.execute("Events.OnKeyPressed.fire(Keyboard.KEY_END)")
     check(calls(lua) == [], "inspect must be ignored while debug is off")
-    check(any("debug mode is OFF" in l for l in out(lua)), "should explain why")
+    check(any("Debug ist AUS" in l for l in out(lua)), f"should explain why: {out(lua)}")
+    lua.execute("Events.OnPostUIDraw.fire()")
+    check(any("Debug ist AUS" in t for t in lua.eval("DRAWN").values()), "message drawn on screen")
+    lua.execute("NOW = 10000; Events.OnPostUIDraw.fire()")
+    check(lua.eval("#Events.OnPostUIDraw.list") == 0, "overlay removed after message expires (no cost)")
 
 
 def t_inspect_sequence():
     lua = fresh(True)
-    lua.execute("CTRL, SHIFT = true, true; Events.OnKeyPressed.fire(Keyboard.KEY_F9)")
-    lua.execute("Events.OnKeyPressed.fire(Keyboard.KEY_F10)")
+    lua.execute("Events.OnKeyPressed.fire(Keyboard.KEY_HOME)")
+    check(lua.eval("#Events.OnPostUIDraw.list") == 1, "overlay on while debug on")
+    lua.execute("Events.OnKeyPressed.fire(Keyboard.KEY_END)")
     c = calls(lua)
     check(c[0] == ["setDebug", True], f"debug toggle: {c}")
     # first person -> facing target: floor(100.5 + 1) = 101, floor(200.5) = 200
@@ -139,6 +161,18 @@ def t_inspect_sequence():
     check(labels == ["z-1", "z+0", "z+1", "z+2"], f"column labels: {labels}")
     check(c[3][1] == "101,200,0", f"square coords: {c[3]}")
     check(c[6] == ["reportEnd"], f"end: {c[6]}")
+    lua.execute("Events.OnPostUIDraw.fire()")
+    drawn = list(lua.eval("DRAWN").values())
+    check(any("VPGeometryFix DEBUG" in t for t in drawn), f"debug banner: {drawn}")
+    check(any("report.txt" in t for t in drawn), f"report path on screen: {drawn}")
+
+
+def t_rebind_from_options():
+    lua = fresh(True)
+    lua.execute('BOUND["VPGF Toggle Debug"] = 59; Events.OnKeyPressed.fire(Keyboard.KEY_HOME)')
+    check(calls(lua) == [], "old default must not fire after rebinding")
+    lua.execute("Events.OnKeyPressed.fire(59)")
+    check(calls(lua) == [["setDebug", True]], f"rebound key: {calls(lua)}")
 
 
 def t_pinned_target_and_inventory():
@@ -151,13 +185,20 @@ def t_pinned_target_and_inventory():
 
 def t_hover_toggle():
     lua = fresh(True)
-    lua.execute("VPGF.setDebug(true); CTRL, SHIFT = true, true; Events.OnKeyPressed.fire(Keyboard.KEY_F11)")
+    lua.execute("VPGF.setDebug(true); Events.OnKeyPressed.fire(Keyboard.KEY_PRIOR)")
     check(lua.eval("#Events.OnTick.list") == 1, "hover adds OnTick")
     lua.execute("for i = 1, 20 do Events.OnTick.fire() end")
     check(any(l.startswith("[VPGeometryFix] hover facing+1 101,200,0: [0] Roof:roofs_01_12") for l in out(lua)),
           f"hover summary: {out(lua)}")
-    lua.execute("Events.OnKeyPressed.fire(Keyboard.KEY_F9)")  # debug off also stops hover
+    lua.execute("Events.OnKeyPressed.fire(Keyboard.KEY_HOME)")  # debug off also stops hover
     check(lua.eval("#Events.OnTick.list") == 0, "hover removed when debug turns off")
+
+
+def t_game_start_message():
+    lua = fresh(False)
+    lua.execute("Events.OnGameStart.fire(); Events.OnPostUIDraw.fire()")
+    drawn = list(lua.eval("DRAWN").values())
+    check(any("aktiv (OHNE Java-Teil)" in t and "K199" in t for t in drawn), f"start message: {drawn}")
 
 
 def main():

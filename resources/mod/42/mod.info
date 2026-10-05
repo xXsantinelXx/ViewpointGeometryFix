@@ -1,10 +1,10 @@
 name=Viewpoint Geometry Fix (Diagnostics)
 id=ViewpointGeometryFix
 author=ViewpointGeometryFix contributors
-modversion=0.1.0-diag
+modversion=0.1.1-diag
 versionMin=42.21.0
 require=\ZombieBuddy
 javaJarFile=media/java/client/ViewpointGeometryFix.jar
 javaPkgName=vpgeometryfix
 ZBVersionMin=2.3.2
-description=Diagnostic-only companion for Project Viewpoint. Detects Viewpoint, ZombieBuddy and the game version, logs [VPGeometryFix] lines and, in debug mode, dumps read-only information about the tile/object you target. Does NOT change rendering, gameplay, save games or any game/Viewpoint file. Ctrl+Shift+F9 debug, Ctrl+Shift+F10 inspect, Ctrl+Shift+F11 hover, Ctrl+Shift+F8 Viewpoint class inventory.
+description=Diagnostic-only companion for Project Viewpoint. Detects Viewpoint, ZombieBuddy and the game version, logs [VPGeometryFix] lines and, in debug mode, dumps read-only information about the tile/object you target. Does NOT change rendering, gameplay, save games or any game/Viewpoint file. Keys (rebindable in Options > Key Bindings > [VPGeometryFix]): Home debug, End inspect, PageUp hover, PageDown Viewpoint class inventory.

@@ -11,7 +11,7 @@ Jede Aussage trägt eine Stufe. Bitte beim Weiterarbeiten beibehalten.
 |---|---|
 | **[V1]** | Selbst im Quellcode gelesen (öffentliches Repo, Lizenz geprüft). |
 | **[V2]** | Sekundärquelle: Dritte haben die Binärdateien (Viewpoint 0.1.5a-hotfix, PZ 42.21.0) per Bytecode/Decompiler auditiert und Namen/Signaturen veröffentlicht. Von uns **nicht** gegen das Viewpoint-JAR verifiziert (kein Zugriff). |
-| **[U]** | Unbekannt. Muss lokal mit dem Inventar-Werkzeug (Strg+Umschalt+F8) ermittelt werden. |
+| **[U]** | Unbekannt. Muss lokal mit dem Inventar-Werkzeug (Taste Bild↓/PageDown) ermittelt werden. |
 | **[H]** | Hypothese, ausdrücklich unbelegt. |
 
 ## Quellen
