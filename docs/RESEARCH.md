@@ -222,6 +222,29 @@ Viewpoint baut sie über einen Rückfallweg [H] – Kandidat für Fehlerbilder A
 plausibel [H; ob Viewpoint Mod-Geometrie liest: U]. Doctor 0.3.3 zählt für
 alle Dach-Tilesets, wie viele Tiles überhaupt eine Form haben.
 
+**Update (Doctor 0.3.3) [V1, Daten aus der Installation des Nutzers]:**
+Von 21 523 Tiles in `tileGeometry.txt` haben 5 158 eine Form. Von **1 426
+Dach-Tiles (18 Tilesets) haben nur 84 eine Form**:
+
+| Tileset | Tiles | mit Form |
+|---|---|---|
+| roofs_01 | 126 | 23 |
+| roofs_02 / 03 / 04 / 05 | 96 / 84 / 85 / 128 | **0** |
+| roofs_30_01 | 90 | 54 |
+| roofs_30_02 … roofs_30_10 | je 90 | **0** |
+| roofs_accents_01 / roofs_burnt_30_01 / roofs_shallow_01 | 4 / 1 / 2 | alle |
+
+Beispiel `roofs_01_0..2`: je **eine** dünne `box` (min −10000×0×−10000,
+max 10000×500×10000), `rotate = 392394x0x0` (vermutlich 39,2394° um X),
+`translate = 0x3982x0`, `0x12147x0`, `0x20312x0` – eine geneigte Dachplatte,
+deren Höhe mit der Position im Tileset steigt.
+
+Folgerung [H, stark]: Für fast alle Dach-Tiles liefert
+`TileMeshes.geometryFor` nichts; Viewpoint muss sie über einen Rückfallweg
+bauen. Die Tilesets `roofs_02…05` bzw. `roofs_30_02…10` sind sehr
+wahrscheinlich Farbvarianten mit demselben Blattaufbau wie `roofs_01` bzw.
+`roofs_30_01` [H] – deren Formen ließen sich übertragen.
+
 Außerdem existiert `viewpoint.render.MousePick$Hit` [V1] – vermutlich das
 Ergebnis von Viewpoints Fadenkreuz-Pick; Kandidat, um später das anvisierte
 Tile direkt zu inspizieren.

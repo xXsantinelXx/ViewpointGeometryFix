@@ -69,6 +69,13 @@ Tile-Formen:
   (`zombie.tileDepth`) aus Mod-Dateien ergänzt/überschrieben werden kann,
   lassen sich falsche Dach-/Kanten-Formen als Datenmod korrigieren – ohne
   Java-Hook. Wird zuerst geprüft.
+* **Konkreter Vorschlag (2026-10-05, noch nicht freigegeben):** Für
+  Dach-Tiles ohne Form die Form des gleichen Tiles (gleiches `xy`) aus dem
+  Schwester-Tileset übernehmen: `roofs_02…05 ← roofs_01`,
+  `roofs_30_02…10 ← roofs_30_01`. Variante A als Daten-Mod
+  (`media/tileGeometry.txt` in dieser Mod, nur wenn Spiel *und* Viewpoint
+  Mod-Geometrie lesen), Variante B als ZombieBuddy-Advice auf
+  `TileMeshes.geometryFor` (nur wenn das Ergebnis leer ist, abschaltbar).
 * **0b. `viewpoint.world.TileMeshes.geometryFor(IsoSprite)` [V1-Signatur]:**
   `@Patch.OnExit` mit `@Patch.Return(readOnly = false)` liefert für bekannte
   Problem-Sprites korrigierte Geometrie. Klein, gezielt, pro Sprite.
