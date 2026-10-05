@@ -31,16 +31,16 @@ Architektur: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
 
 Eigenständiges Prüfprogramm, läuft **außerhalb** des Spiels, nur lesend:
 
-1. `build/dist/VPGF-Doctor-<version>.zip` irgendwohin entpacken (z. B. Desktop).
-2. `VPGF-Doctor.bat` doppelklicken (nutzt das Java des Spiels aus
-   `ProjectZomboid\jre64`). Steam-Bibliothek woanders? →
-   `VPGF-Doctor.bat --steam-lib "D:\SteamLibrary"`.
+1. `build/dist/VPGF-Doctor.zip` irgendwohin entpacken (z. B. Desktop).
+2. `VPGF-Doctor.bat` doppelklicken. Braucht **kein Java**, nur die in Windows
+   enthaltene PowerShell; Steam wird über die Registry gefunden. Falls nicht →
+   `VPGF-Doctor.bat -SteamLib "D:\SteamLibrary"`.
 3. Es öffnet sich `VPGF-Report.txt`: Spielversion, ZombieBuddy (inkl. ob der
    `-javaagent` eingetragen ist), Viewpoint-Version und -Klassen, ob diese Mod
    am richtigen Ort liegt, die relevanten Zeilen aus `console.txt` und unter
    **ERGEBNIS** die gefundenen Probleme.
 4. Diesen Bericht weitergeben. Die zweite Datei `VPGF-Viewpoint-Classes.txt`
-   enthält Signaturen von Viewpoints Code und bleibt lokal.
+   (alle Viewpoint-Klassennamen) bleibt lokal.
 
 ## Voraussetzungen
 

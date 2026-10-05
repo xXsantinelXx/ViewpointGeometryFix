@@ -45,15 +45,11 @@ Copy-Item "$Root\LICENSE" "$Mod\LICENSE.txt"
 
 Write-Host '[build] VPGF Doctor'
 $DocOut = "$Out\doctor\VPGF-Doctor"
-New-Item -ItemType Directory -Force "$Out\doctor-classes", $DocOut | Out-Null
-$docSrcs = Get-ChildItem -Recurse "$Root\src\doctor\java" -Filter *.java | ForEach-Object FullName
-& $javac --release 17 -Xlint:all -Werror -d "$Out\doctor-classes" @docSrcs
-if ($LASTEXITCODE) { throw 'doctor compilation failed' }
-"Main-Class: vpgeometryfix.doctor.Doctor`nImplementation-Version: $Version`n" | Set-Content -Encoding ASCII "$Out\DOCTOR.MF"
-& $jar --create --date="2026-01-01T00:00:00Z" --file "$DocOut\VPGF-Doctor.jar" --manifest "$Out\DOCTOR.MF" -C "$Out\doctor-classes" .
-if ($LASTEXITCODE) { throw 'doctor jar failed' }
-(Get-Content "$Root\resources\doctor\VPGF-Doctor.bat") | Set-Content -Encoding ASCII "$DocOut\VPGF-Doctor.bat"
-$docZip = "$Dist\VPGF-Doctor-$Version.zip"
+New-Item -ItemType Directory -Force $DocOut | Out-Null
+foreach ($f in 'VPGF-Doctor.bat', 'VPGF-Doctor.ps1') {
+    (Get-Content "$Root\resources\doctor\$f") | Set-Content -Encoding ASCII "$DocOut\$f"
+}
+$docZip = "$Dist\VPGF-Doctor.zip"
 if (Test-Path $docZip) { Remove-Item $docZip }
 Compress-Archive -Path $DocOut -DestinationPath $docZip
 Write-Host "[build] done: $docZip"

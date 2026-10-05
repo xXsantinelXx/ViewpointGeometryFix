@@ -39,6 +39,9 @@ build/build.sh --test
 ```
 
 Baut mit `-Xlint:all -Werror`, prüft dass keine Stubs ins JAR gelangen,
-führt Java- (tests/java) und Lua-Tests (tests/lua, benötigt `pip install lupa`) aus.
+führt Java- (tests/java), Lua- (tests/lua, benötigt `pip install lupa`) und
+Doctor-Tests (tests/doctor, benötigt `pwsh`; ohne `pwsh` übersprungen) aus.
+`VPGF-Doctor.ps1` muss mit Windows PowerShell 5.1 laufen: kein `??`, kein
+Ternary, kein `Join-Path` auf evtl. fehlende Laufwerke.
 Nach Änderungen an `src/` oder `resources/` das Release-Zip in `build/dist/`
 neu bauen und mitcommitten.

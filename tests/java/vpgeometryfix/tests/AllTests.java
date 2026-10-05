@@ -180,58 +180,6 @@ public final class AllTests {
             eq(null, ClassInventory.write(tmp, "viewpoint.", "t"));
         });
 
-        test("doctor: class-file reader", () -> {
-            byte[] b = Files.readAllBytes(classFile(viewpoint.models.RoofMeshes.class));
-            vpgeometryfix.doctor.ClassFileInfo ci = vpgeometryfix.doctor.ClassFileInfo.read(b);
-            eq("viewpoint.models.RoofMeshes", ci.name);
-            eq("java.lang.Object", ci.superName);
-            check(ci.fields.contains("static built I"));
-            check(ci.fields.contains("edgeHeight F"));
-            check(ci.methods.contains("edge (II)F"));
-        });
-
-        test("doctor: full report on a fake installation", () -> {
-            Path lib = tmp.resolve("doc/SteamLibrary");
-            Path pz = lib.resolve("steamapps/common/ProjectZomboid");
-            Files.createDirectories(pz);
-            Files.writeString(pz.resolve("projectzomboid.jar"), "x");
-            Files.writeString(pz.resolve("ProjectZomboid64.json"), "{\"vmArgs\": [\"-javaagent:ZombieBuddy.jar\"]}");
-            Files.writeString(pz.resolve("ZombieBuddy.jar"), "x");
-            Path vp = lib.resolve("steamapps/workshop/content/108600/999/mods/Viewpoint/42");
-            Files.createDirectories(vp.resolve("media/java/client"));
-            Files.writeString(vp.resolve("mod.info"), "name=Project Viewpoint\nid=Viewpoint\nmodversion=0.1.5a-hotfix\n");
-            Path vpJar = vp.resolve("media/java/client/viewpoint.jar");
-            try (var jos = new java.util.jar.JarOutputStream(Files.newOutputStream(vpJar))) {
-                jos.putNextEntry(new java.util.jar.JarEntry("viewpoint/models/RoofMeshes.class"));
-                jos.write(Files.readAllBytes(classFile(viewpoint.models.RoofMeshes.class)));
-                jos.closeEntry();
-                jos.putNextEntry(new java.util.jar.JarEntry("viewpoint/core/View.class"));
-                jos.write(Files.readAllBytes(classFile(viewpoint.core.View.class)));
-                jos.closeEntry();
-            }
-            Path zomboid = tmp.resolve("doc/Zomboid");
-            Path wrong = zomboid.resolve("mods/ViewpointGeometryFix/ViewpointGeometryFix/42");
-            Files.createDirectories(wrong);
-            Files.writeString(wrong.resolve("mod.info"), "id=ViewpointGeometryFix\nmodversion=0.1.3-diag\njavaJarFile=media/java/client/ViewpointGeometryFix.jar\n");
-            Files.writeString(zomboid.resolve("console.txt"), String.join("\n",
-                    "LOG  : General , 1> loading Viewpoint", "LOG  : General , 1> [ZB] ZombieBuddy v2.3.4", "foo"));
-            Path out = tmp.resolve("doc/out/VPGF-Report.txt");
-            Files.createDirectories(out.getParent());
-            vpgeometryfix.doctor.Doctor.main(new String[] {"--steam-lib", lib.toString(), "--zomboid", zomboid.toString(),
-                    "--out", out.toString()});
-            String r = Files.readString(out);
-            contains(r, "javaagent eingetragen");
-            contains(r, "Mod: id=Viewpoint name=Project Viewpoint modversion=0.1.5a-hotfix");
-            contains(r, "Klassen gesamt: 2, davon mit Geometrie-/Render-Stichwort: 1");
-            contains(r, "viewpoint.models.RoofMeshes (");
-            contains(r, "Mod liegt an falscher Stelle");
-            contains(r, "Lua-Datei der Mod fehlt");
-            contains(r, "console.txt erwaehnt ViewpointGeometryFix nicht");
-            check(!r.contains("Keine ZombieBuddy-Zeilen"));
-            String cls = Files.readString(out.resolveSibling("VPGF-Viewpoint-Classes.txt"));
-            contains(cls, "      M edge (II)F");
-        });
-
         System.out.println();
         System.out.println("passed: " + passed + ", failed: " + failures.size());
         for (String f : failures) System.out.println("FAIL " + f);
@@ -249,12 +197,7 @@ public final class AllTests {
         }
     }
 
-    private static Path classFile(Class<?> c) throws Exception {
-        Path root = Path.of(c.getProtectionDomain().getCodeSource().getLocation().toURI());
-        return root.resolve(c.getName().replace('.', '/') + ".class");
-    }
-
-        private static String captureStdout(Body b) throws Exception {
+    private static String captureStdout(Body b) throws Exception {
         PrintStream old = System.out;
         ByteArrayOutputStream buf = new ByteArrayOutputStream();
         System.setOut(new PrintStream(buf, true, StandardCharsets.UTF_8));
