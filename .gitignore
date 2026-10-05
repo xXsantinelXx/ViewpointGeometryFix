@@ -1,0 +1,8 @@
+# build output (the release zip in build/dist is tracked on purpose)
+build/out/
+*.class
+# local, never commit: proprietary inputs and generated inventories
+local/
+*.inventory.txt
+.idea/
+.vscode/
