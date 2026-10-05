@@ -12,7 +12,7 @@ param(
 )
 
 $ErrorActionPreference = 'Continue'
-$Version = '0.3.1'
+$Version = '0.3.2'
 $ModId = 'ViewpointGeometryFix'
 $Pins = @{
     'e1a69eb743ede60b213a0fe7f8b83d4fcab773036d256cc4543a336f3b058a33' = 'projectzomboid.jar 42.21.0'
@@ -336,6 +336,45 @@ foreach ($root in $wsRoots.Keys) {
 if ($geoFiles.Count -eq 0) { Line 'Keine Dateien mit tileGeometry/tileDepth im Namen gefunden.' }
 $geoFiles | Sort-Object | Select-Object -First 80 | ForEach-Object { Line $_ }
 if ($geoFiles.Count -gt 80) { Line ('(' + ($geoFiles.Count - 80) + ' weitere ausgelassen)') }
+
+# ---------------------------------------------------------------- tile geometry format
+# Short excerpts only: the file format (first lines), the entries of roof
+# tilesets, and how the vanilla debug editor saves/loads (mod support?).
+Section '4c tileGeometry.txt: Aufbau und Dach-Eintraege'
+if ($pz) {
+    $tg = [IO.Path]::Combine($pz, 'media', 'tileGeometry.txt')
+    if (Test-Path -LiteralPath $tg) {
+        $tgLines = @(Get-Content -LiteralPath $tg -ErrorAction SilentlyContinue)
+        Line ('Datei: ' + $tg + ', ' + $tgLines.Count + ' Zeilen')
+        Line '--- erste 40 Zeilen'
+        $tgLines | Select-Object -First 40 | ForEach-Object { Line ('  ' + $_) }
+        # first roof entry with surrounding block (up to 60 lines), plus how many roof mentions exist
+        $roofIdx = @()
+        for ($i = 0; $i -lt $tgLines.Count; $i++) { if ($tgLines[$i] -match '(?i)roofs_') { $roofIdx += $i } }
+        Line ('--- Zeilen mit "roofs_": ' + $roofIdx.Count)
+        if ($roofIdx.Count -gt 0) {
+            $start = [Math]::Max(0, $roofIdx[0] - 5)
+            $end = [Math]::Min($tgLines.Count - 1, $roofIdx[0] + 55)
+            Line ('--- erster Dach-Eintrag (Zeilen {0}-{1})' -f ($start + 1), ($end + 1))
+            for ($i = $start; $i -le $end; $i++) { Line ('  ' + $tgLines[$i]) }
+            $names = @($roofIdx | ForEach-Object { if ($tgLines[$_] -match '(?i)(roofs_[a-z0-9_]+)') { $Matches[1] } } | Select-Object -Unique)
+            Line ('--- verschiedene Dach-Tilesets/Sprites (erste 40 von ' + $names.Count + '): ' + (($names | Select-Object -First 40) -join ', '))
+        }
+    } else { Line 'tileGeometry.txt nicht gefunden.' }
+    $editor = [IO.Path]::Combine($pz, 'media', 'lua', 'client', 'DebugUIs', 'TileGeometryEditor')
+    if (Test-Path -LiteralPath $editor) {
+        Line '--- TileGeometryEditor: Zeilen zu Laden/Speichern/Mods (max. 60)'
+        $hits = @(Get-ChildItem -LiteralPath $editor -Filter '*.lua' -File | ForEach-Object {
+            $f = $_.Name; $n = 0
+            Get-Content -LiteralPath $_.FullName | ForEach-Object {
+                $n++
+                if ($_ -match '(?i)(modid|getmod|\bmods?\b|save|write|reload|load\w*\(|tilegeometry\.txt|filename|path)') { '{0}:{1}: {2}' -f $f, $n, $_.Trim() }
+            }
+        })
+        $hits | Select-Object -First 60 | ForEach-Object { Line ('  ' + $_) }
+        if ($hits.Count -gt 60) { Line ('  (' + ($hits.Count - 60) + ' weitere)') }
+    }
+}
 
 # ---------------------------------------------------------------- this mod
 Section '5 ViewpointGeometryFix (diese Mod)'
