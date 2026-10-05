@@ -1,5 +1,14 @@
 # Diagnose-Handbuch (0.1.3-diag)
 
+## Zuerst: VPGF Doctor (außerhalb des Spiels)
+
+Wenn im Spiel nichts zu sehen ist, `VPGF-Doctor.bat` aus
+`build/dist/VPGF-Doctor-<version>.zip` starten (siehe README). Der Bericht
+zeigt, ob das Spiel die Mod überhaupt lädt, ob ZombieBuddy aktiv ist und
+welche Viewpoint-Klassen für Geometrie in Frage kommen – ganz ohne Tasten,
+UI oder ZombieBuddy. Die Klassenliste stammt direkt aus dem JAR
+(Klassenformat nach JVMS Kap. 4, kein Dekompilieren).
+
 ## Ist die Mod aktiv?
 
 1. **Hauptmenü:** oben links steht gelb „VPGeometryFix 0.1.3-diag geladen – Java-Teil: OK“

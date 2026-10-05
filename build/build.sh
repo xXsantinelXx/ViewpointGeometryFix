@@ -37,6 +37,14 @@ jar --create --date="$STAMP" --file "$MOD/42/media/java/client/ViewpointGeometry
     --manifest "$OUT/MANIFEST.MF" -C "$OUT/classes" .
 cp "$ROOT/LICENSE" "$MOD/LICENSE.txt"
 
+echo "[build] VPGF Doctor (standalone checker, runs outside the game)"
+mkdir -p "$OUT/doctor-classes" "$OUT/doctor/VPGF-Doctor"
+javac --release 17 -Xlint:all -Werror -d "$OUT/doctor-classes" $(find "$ROOT/src/doctor/java" -name '*.java')
+printf 'Main-Class: vpgeometryfix.doctor.Doctor\nImplementation-Version: %s\n' "$VERSION" > "$OUT/DOCTOR.MF"
+jar --create --date="$STAMP" --file "$OUT/doctor/VPGF-Doctor/VPGF-Doctor.jar" --manifest "$OUT/DOCTOR.MF" -C "$OUT/doctor-classes" .
+# Windows batch files need CRLF line endings
+sed 's/\r*$/\r/' "$ROOT/resources/doctor/VPGF-Doctor.bat" > "$OUT/doctor/VPGF-Doctor/VPGF-Doctor.bat"
+
 echo "[build] zip"
 ZIP="$DIST/ViewpointGeometryFix-$VERSION.zip"
 rm -f "$ZIP"
@@ -54,7 +62,23 @@ with zipfile.ZipFile(dst, "w", zipfile.ZIP_DEFLATED) as z:
             with open(p, "rb") as fh:
                 z.writestr(info, fh.read())
 PY
-sha256sum "$ZIP" "$MOD/42/media/java/client/ViewpointGeometryFix.jar"
+DOCTOR_ZIP="$DIST/VPGF-Doctor-$VERSION.zip"
+rm -f "$DIST"/VPGF-Doctor-*.zip
+python3 - "$OUT/doctor" "$DOCTOR_ZIP" <<'PY'
+import os, sys, zipfile
+src, dst = sys.argv[1], sys.argv[2]
+with zipfile.ZipFile(dst, "w", zipfile.ZIP_DEFLATED) as z:
+    for base, dirs, files in os.walk(src):
+        dirs.sort()
+        for f in sorted(files):
+            p = os.path.join(base, f)
+            info = zipfile.ZipInfo(os.path.relpath(p, src).replace(os.sep, "/"), (2026, 1, 1, 0, 0, 0))
+            info.compress_type = zipfile.ZIP_DEFLATED
+            info.external_attr = 0o644 << 16
+            with open(p, "rb") as fh:
+                z.writestr(info, fh.read())
+PY
+sha256sum "$ZIP" "$DOCTOR_ZIP" "$MOD/42/media/java/client/ViewpointGeometryFix.jar"
 echo "[build] done: $ZIP"
 
 if [[ "${1:-}" == "--test" ]]; then

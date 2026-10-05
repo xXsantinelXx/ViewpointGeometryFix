@@ -49,6 +49,15 @@ Ausgabe: Konsole (`console.txt`) mit Präfix `[VPGeometryFix]` sowie
 `<Zomboid>/VPGeometryFix/` (`VPGeometryFix.log`, `inspect/`, `inventory/`,
 optional `config.properties`).
 
+## VPGF Doctor (außerhalb des Spiels)
+
+`src/doctor/java/vpgeometryfix/doctor/` → `VPGF-Doctor.jar` + `.bat`. Nur
+lesend; prüft Steam-Bibliotheken, `projectzomboid.jar` (SHA-256),
+`ProjectZomboid64.json` (`-javaagent`), ZombieBuddy, Viewpoint (mod.info,
+JAR-SHA-256, Klassenliste per eigenem Class-File-Leser), die Installation
+dieser Mod und `console.txt`. Unabhängig von Mod-Laden, ZombieBuddy und UI –
+die verlässlichste Datenquelle, solange In-Game-Rückmeldung fehlt.
+
 ## Eingriffspunkte für den späteren Fix
 
 Reihenfolge nach Wahrscheinlichkeit, alle über ZombieBuddy-Advice auf
