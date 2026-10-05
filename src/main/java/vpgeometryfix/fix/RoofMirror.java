@@ -92,6 +92,8 @@ public final class RoofMirror {
     private static volatile boolean any;
     private static final AtomicLong BUILT = new AtomicLong();
     private static final AtomicLong SWAPPED = new AtomicLong();
+    /** Recipe.place* advice calls of any mesh: proves the Recipe patches are woven in. */
+    private static final AtomicLong PLACE_CALLS = new AtomicLong();
     private static final AtomicLong REJECTED = new AtomicLong();
     private static final Map<String, Boolean> LOGGED = new java.util.concurrent.ConcurrentHashMap<>();
     private static volatile Method create;
@@ -128,6 +130,10 @@ public final class RoofMirror {
 
     public static long swapped() {
         return SWAPPED.get();
+    }
+
+    public static long placeCalls() {
+        return PLACE_CALLS.get();
     }
 
     public static long rejected() {
@@ -190,6 +196,7 @@ public final class RoofMirror {
      * front texture, else null. Fast path when no mesh was mirrored yet.
      */
     public static Object[] swap(Object mesh, Object page, float[] map) {
+        PLACE_CALLS.incrementAndGet();
         if (!any || mesh == null) return null;
         try {
             Swap s = lookup(mesh);

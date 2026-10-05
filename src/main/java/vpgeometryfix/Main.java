@@ -29,10 +29,12 @@ public final class Main {
                     Config.getBool("roofFixTrim", true));
             RoofMirror.setEnabled(Config.getBool("roofFixMesh", true));
             String map = RoofShapes.setBackMap(Config.get("roofBackMap", null));
+            RoofShapes.setBackMode(Config.get("roofBackMode", "same"));
             Log.fileOnly("Java component loaded via ZombieBuddy (debug=" + Config.isDebug() + ", source=" + Config.source()
                     + ", roofFixB=" + RoofFallback.isEnabled() + ", mirror/clip/trim/mesh="
                     + Config.getBool("roofFixMirror", true) + "/" + Config.getBool("roofFixClip", true) + "/"
-                    + Config.getBool("roofFixTrim", true) + "/" + RoofMirror.isEnabled() + ", backMap=" + map + ")");
+                    + Config.getBool("roofFixTrim", true) + "/" + RoofMirror.isEnabled() + ", backMap=" + map
+                    + ", backMode=" + (RoofShapes.isMirrorMode() ? "mirror" : "same") + ")");
         } catch (Throwable t) {
             System.out.println(Log.PREFIX + "ERROR Java init failed: " + t);
         }

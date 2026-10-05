@@ -5,7 +5,7 @@ Project Zomboid Build 42.21). Ziel ist, falsch, unvollständig, verschoben oder
 gar nicht gerenderte Dächer, Dachkanten, Wände und Objekte zu untersuchen und
 später zu beheben.
 
-**Aktueller Stand: 0.3.0-test – Dach-Fix (schaltbar) + Diagnose.**
+**Aktueller Stand: 0.3.1-test – Dach-Fix (schaltbar) + Diagnose.**
 Ändert nichts an Gameplay, Savegames, `projectzomboid.jar` oder Viewpoint-Dateien;
 alle Korrekturen wirken nur zur Laufzeit in Viewpoints First-Person-Ansicht.
 
@@ -22,14 +22,17 @@ Spiel nur als Tiefenhilfe für die Iso-Ansicht hat. Dabei
 
 Der Fix (Schalter „Dach-Fix“ im Fenster, Standard **an**, volle Wirkung nach Neustart):
 
-1. **Hintere Hälften:** Viewpoint bekommt für `roofs_*_8…13` das gespiegelte Mesh der
-   Vorderhälfte (`roofs_*_0…5`) und zeichnet es mit deren Textur.
+1. **Dachkacheln ohne Form:** `roofs_*_8…13` (und vom Spiel zugeordnete wie 67–69)
+   bekommen die Form ihres Partners aus `roofs_*_0…5` (gleiche Neigung, eigenes Bild;
+   Partner automatisch per Bildhöhe). Seit 0.3.1; 0.3.0 hatte gespiegelt
+   (`roofBackMode=mirror`, nur noch als Option).
 2. **Platten:** auf ihr Tile zugeschnitten.
 3. **Giebelleisten:** dünn in die Giebelebene gelegt.
 4. **Fix B:** leere Dach-Tiles der Farbvarianten bekommen die Form aus `roofs_01`/`roofs_30_01`.
 
 Einzelschalter in `Zomboid\VPGeometryFix\config.properties`: `roofFixB` (alles),
-`roofFixMirror`, `roofFixMesh`, `roofFixClip`, `roofFixTrim`; Zuordnung der hinteren
+`roofFixMirror` (Kacheln 8–13), `roofFixClip`, `roofFixTrim`, `roofBackMode=same|mirror`,
+`roofFixMesh` (nur für `mirror`); Zuordnung der
 Hälften `roofBackMap=8=0z,9=1z,10=2z,11=3x,12=4x,13=5x` (leer = automatisch aus den
 Bildhöhen der Sprites).
 Variante A (`VPGF-RoofData.bat`) brachte nachweislich nichts und kann entfernt werden.
@@ -83,7 +86,7 @@ Eigenständiges Prüfprogramm, läuft **außerhalb** des Spiels, nur lesend:
 ## Installation (Windows 11)
 
 1. Spiel schließen.
-2. `build/dist/ViewpointGeometryFix-0.3.0-test.zip` nach
+2. `build/dist/ViewpointGeometryFix-0.3.1-test.zip` nach
    `%USERPROFILE%\Zomboid\mods\` entpacken. Ergebnis:
    `%USERPROFILE%\Zomboid\mods\ViewpointGeometryFix\42\mod.info`.
 3. Spiel starten → Mods → **Viewpoint Geometry Fix (Diagnostics)** aktivieren

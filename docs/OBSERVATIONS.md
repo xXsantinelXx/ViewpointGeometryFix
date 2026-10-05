@@ -32,6 +32,13 @@ senkrechten 2,25 × 3,45-Platten (Kanten in der Luft). Nächster Schritt laut Nu
 erst Daten mit 0.2.3-test („Dach-Daten“ am kaputten Haus), dann ggf. Freigabe für
 einen schaltbaren Rückseiten-Fix.
 
+## Test 0.3.0 (Screenshot 2026-10-05 abends)
+
+Eine dunkle, schräg verkehrt geneigte Platte schwebt über dem Dach. Das 0.3.0-Log
+zeigt: Die „Rückseiten“-Kacheln 8–13 haben vollständige Bilder wie 0–5, sind also
+sichtbare Dachflächen; das Spiegeln gab ihnen die Gegenneigung [H, stark]. 0.3.1
+gibt ihnen die Form ihres Partners ungespiegelt (RESEARCH.md Update 6).
+
 ## Zuordnung nach den Formwerten (0.2.2-test, siehe RESEARCH.md Update 4)
 
 | # | wahrscheinlichste Ursache [H] | Sicherheit |

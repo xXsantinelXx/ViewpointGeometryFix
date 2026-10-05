@@ -210,13 +210,13 @@ public final class AllTests {
         test("roof fix B: replaces only empty results of covered roofs", () -> {
             var rf = vpgeometryfix.fix.RoofFallback.class;
             vpgeometryfix.fix.RoofFallback.setEnabled(false);
-            eq(null, vpgeometryfix.fix.RoofFallback.apply(new FakeSquare.FakeSprite("roofs_02_12"), new java.util.ArrayList<>()));
+            eq(null, vpgeometryfix.fix.RoofFallback.apply(new FakeSquare.FakeSprite("roofs_02_20"), new java.util.ArrayList<>()));
             vpgeometryfix.fix.RoofFallback.setEnabled(true);
             long before = vpgeometryfix.fix.RoofFallback.replaced();
-            var r = vpgeometryfix.fix.RoofFallback.apply(new FakeSquare.FakeSprite("roofs_02_12"), new java.util.ArrayList<>());
+            var r = vpgeometryfix.fix.RoofFallback.apply(new FakeSquare.FakeSprite("roofs_02_20"), new java.util.ArrayList<>());
             check(r != null && r.size() == 2);
             eq(before + 1, vpgeometryfix.fix.RoofFallback.replaced());
-            eq(null, vpgeometryfix.fix.RoofFallback.apply(new FakeSquare.FakeSprite("roofs_02_12"), java.util.List.of("kept")));
+            eq(null, vpgeometryfix.fix.RoofFallback.apply(new FakeSquare.FakeSprite("roofs_02_20"), java.util.List.of("kept")));
             eq(null, vpgeometryfix.fix.RoofFallback.apply(new FakeSquare.FakeSprite("walls_01_0"), new java.util.ArrayList<>()));
             eq(null, vpgeometryfix.fix.RoofFallback.apply(new FakeSquare.FakeSprite("roofs_06_0"), new java.util.ArrayList<>()));
             eq(null, vpgeometryfix.fix.RoofFallback.apply(null, null));
@@ -401,11 +401,21 @@ public final class AllTests {
                     new float[] {-1.5f, -1, -0.5f}, new float[] {0.75f, 2.45f, -0.2f}));
             var ra = vpgeometryfix.fix.RoofFallback.apply(new FakeSquare.FakeSprite("roofs_accents_01_4"), acc);
             eq(-0.48f, ((fake.FakeBox) ra.get(0)).max.z);
-            // back half roofs_05_8 (empty) <- mirrored, trimmed roofs_05_0
+            // tile 8 (empty) <- the partner's trimmed shape, same slope (default "same")
+            var rs = vpgeometryfix.fix.RoofFallback.apply(new FakeSquare.FakeSprite("roofs_05_10"), new java.util.ArrayList<>());
+            check(rs != null && rs.size() == 2); // roofs_05_2 has none: the sibling roofs_01_2's shapes
+            var rb0 = vpgeometryfix.fix.RoofFallback.apply(new FakeSquare.FakeSprite("roofs_05_8"), new java.util.ArrayList<>());
+            check(rb0 != null && rb0.size() == 1);
+            fake.FakeBox sb = (fake.FakeBox) rb0.get(0);
+            check(Math.abs(sb.rotate.x - 39.2394f) < 1e-4 && sb.max.x == 0.5f);
+            check(!vpgeometryfix.fix.RoofFallback.isMirroredBack("roofs_05_8"));
+            // optional mirror mode (0.3.0 behaviour)
+            vpgeometryfix.fix.RoofShapes.setBackMode("mirror");
             var rb = vpgeometryfix.fix.RoofFallback.apply(new FakeSquare.FakeSprite("roofs_05_8"), new java.util.ArrayList<>());
             check(rb != null && rb.size() == 1);
             fake.FakeBox bb = (fake.FakeBox) rb.get(0);
             check(Math.abs(bb.rotate.x + 39.2394f) < 1e-4 && bb.max.x == 0.5f);
+            vpgeometryfix.fix.RoofShapes.setBackMode("same");
             // master switch off: nothing changes
             vpgeometryfix.fix.RoofFallback.setEnabled(false);
             eq(null, vpgeometryfix.fix.RoofFallback.apply(new FakeSquare.FakeSprite("roofs_05_0"), orig));
@@ -414,7 +424,8 @@ public final class AllTests {
             String log = Files.readString(tmp.resolve("VPGeometryFix.log"));
             contains(log, "roof fix: roofs_05_0 slab trimmed to its tile");
             contains(log, "roof fix: roofs_accents_01_4 trim card moved into the gable plane");
-            contains(log, "roof seen: roofs_05_8 - no shape, back half <- mirrored roofs_05_0");
+            contains(log, "roof seen: roofs_05_8 - no shape, roof tile <- shape of roofs_05_0");
+            contains(log, "roof tile type: roofs_05_8 type=");
         });
 
         test("roof back-half mesh: mirrored front mesh and texture swap", () -> {
@@ -434,6 +445,8 @@ public final class AllTests {
 
             vpgeometryfix.fix.RoofFallback.setEnabled(true);
             vpgeometryfix.fix.RoofMirror.setEnabled(true);
+            vpgeometryfix.fix.RoofShapes.setBackMode("mirror");
+            vpgeometryfix.fix.RoofFallback.apply(new FakeSquare.FakeSprite("roofs_05_8"), new java.util.ArrayList<>());
             zombie.core.textures.Texture back = zombie.core.textures.Texture.trygetTexture("roofs_05_8");
             // without the shape path having filled roofs_05_9, the mesh path does nothing
             eq(null, vpgeometryfix.fix.RoofMirror.onCreate(new FakeSquare.FakeSprite("roofs_05_9"), back, null, null));
@@ -451,6 +464,8 @@ public final class AllTests {
             contains(log, "roof back half: roofs_05_8 <- mirrored roofs_05_0 (z, 3 verts)");
             contains(log, "roof art: roofs_05_8 128x2 at 0,120 of 128x256");
             check(vpgeometryfix.fix.RoofMirror.built() >= 1 && vpgeometryfix.fix.RoofMirror.swapped() >= 1);
+            check(vpgeometryfix.fix.RoofMirror.placeCalls() >= 2);
+            vpgeometryfix.fix.RoofShapes.setBackMode("same");
         });
 
         System.out.println();

@@ -106,8 +106,10 @@ public final class LuaBridge {
                     + (RoofFallback.calls() > 0 ? ", Patch aktiv (" + RoofFallback.calls() + " Aufrufe)\n"
                         + "  Daecher: mit Form " + RoofFallback.roofShaped() + ", ohne Form " + RoofFallback.roofEmpty()
                         + ", ersetzt " + RoofFallback.replaced() + "\n"
-                        + "  Rueckseiten " + RoofFallback.mirrored() + " (Mesh " + RoofMirror.built() + ", Bild "
-                        + RoofMirror.swapped() + "), Platten " + RoofFallback.clipped() + ", Leisten " + RoofFallback.trimmed()
+                        + "  Dachkacheln ergaenzt " + RoofFallback.mirrored()
+                        + (vpgeometryfix.fix.RoofShapes.isMirrorMode() ? " (gespiegelt, Mesh " + RoofMirror.built() + ", Bild "
+                            + RoofMirror.swapped() + "/" + RoofMirror.placeCalls() + ")" : "")
+                        + ", Platten " + RoofFallback.clipped() + ", Leisten " + RoofFallback.trimmed()
                         : ", Patch noch nicht aufgerufen");
             Path data = roofDataFile();
             String a = "Dach-Fix A (Datei): " + (data != null && java.nio.file.Files.isRegularFile(data)

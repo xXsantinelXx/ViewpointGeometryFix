@@ -330,6 +330,20 @@ einem unabhängigen Prüfer nachgerechnet; widerlegte Teile sind korrigiert.
   weder Form noch Grafik.
 * **Fix (0.3.0-test, freigegeben):** siehe ARCHITECTURE.md „Dach-Fix“.
 
+### Update 2026-10-05 (6): Tiles 8–13 sind sichtbare Dachflächen (0.3.0-test-Log)
+
+* **Bilder [V1]:** `roof art`-Zeilen: `roofs_01_8` 128×131 bei y 125 (wie `roofs_01_0`
+  128×129 bei y 127), `_9` 128×131 bei y 61 (wie `_1`), `_10` 128×128 bei y 0 (wie `_2`),
+  `_11` wie `_5`, `_13` wie `_3`; ebenso in allen Farbvarianten. Für 9–13 gibt es
+  Schnee-Überlagerungen (`e_roof_snow_1_41…45 = roofs_01_9…13`).
+* **Folgerung [H, stark]:** 8–13 sind keine unsichtbaren Rückseiten, sondern sichtbare
+  Dachkacheln mit derselben Neigung wie ihre Partner 0–5 (Partner per Bildhöhe: 8↔0,
+  9↔1, 10↔2, 11↔5, 12↔4, 13↔3). Das Spiegeln in 0.3.0 hat ihnen die Gegenneigung
+  gegeben – passend zur schwebenden, verkehrt geneigten Platte im Screenshot.
+* **0.3.1:** Standard `roofBackMode=same` (Form des Partners unverändert, eigenes Bild);
+  `mirror` bleibt als Option. „Bild 0“ (kein Textur-Tausch) in 0.3.0: Ursache noch offen
+  [U]; der neue Zähler „of N places“ zeigt, ob die `Recipe.place*`-Patches überhaupt laufen.
+
 ## 5. Andere B42-Mods, die Rendering/Sichtbarkeit per ZombieBuddy ändern [V1]
 
 * **PeekAView** (MIT): Wand-Cutaway-Reichweite, Baum-Fade, Treppenansicht – patcht

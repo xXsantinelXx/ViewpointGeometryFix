@@ -35,6 +35,25 @@ public final class RoofShapes {
 
     /** Back tile index -> {front tile index, axis (0 = mirror z, 1 = mirror x)} [H, configurable]. */
     static final int[][] DEFAULT_BACK = {{8, 0, 0}, {9, 1, 0}, {10, 2, 0}, {11, 3, 1}, {12, 4, 1}, {13, 5, 1}};
+    /**
+     * How the shapes of tiles 8..13 are made. "same" (default since 0.3.1): the
+     * partner tile's shapes unchanged. Evidence [V1, user's 0.3.0 log]: their
+     * pictures have the same size and place as tiles 0..5 (roofs_01_8 128x131 at
+     * y 125 vs roofs_01_0 128x129 at y 127) and the game has snow overlays for them
+     * (e_roof_snow_1_41..45 = roofs_01_9..13), so they are visible surfaces with the
+     * partner's slope, not edge-on back halves [H]. "mirror" (0.3.0 behaviour) is
+     * kept as an option: it put slabs with the opposite slope on the roof.
+     */
+    private static volatile boolean mirrorMode;
+
+    public static void setBackMode(String mode) {
+        mirrorMode = "mirror".equalsIgnoreCase(mode == null ? "" : mode.trim());
+    }
+
+    public static boolean isMirrorMode() {
+        return mirrorMode;
+    }
+
     /** Explicit map from config (roofBackMap), or null for the automatic per-tileset map. */
     private static volatile int[][] configured;
     private static final Map<String, int[][]> AUTO = new ConcurrentHashMap<>();

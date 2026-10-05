@@ -151,6 +151,10 @@ public final class RoofFallback {
                 return enabled ? correct(name, original) : null;
             }
             ROOF_EMPTY.incrementAndGet();
+            if (RoofShapes.backOf(name) != null && LOGGED.putIfAbsent("type " + name, Boolean.TRUE) == null && LOGGED.size() <= 60) {
+                // the game's object type of this tile (IsoSprite.getType [B41 name, B42 U]) - helps to tell what the tile is
+                Log.fileOnly("roof tile type: " + name + " type=" + Reflect.call(sprite, "getType"));
+            }
             if (enabled && mirrorOn) {
                 ArrayList<Object> half = backHalf(name);
                 if (half != null) return half;
@@ -237,7 +241,14 @@ public final class RoofFallback {
             return null;
         }
         List<?> corrected = correct(source, front);
-        ArrayList<Object> mirrored = RoofShapes.mirror(corrected != null ? corrected : front, (Integer) back[1]);
+        List<?> base = corrected != null ? corrected : front;
+        if (!RoofShapes.isMirrorMode()) {
+            // default: the partner tile's (corrected) shapes as they are - same slope, own picture
+            MIRRORED.incrementAndGet();
+            emptySeen(name, "no shape, roof tile <- shape of " + source + ": " + describe(base));
+            return new ArrayList<>(base);
+        }
+        ArrayList<Object> mirrored = RoofShapes.mirror(base, (Integer) back[1]);
         if (mirrored == null) {
             emptySeen(name, "no shape, back half: " + source + " cannot be mirrored");
             return null;
@@ -377,6 +388,7 @@ public final class RoofFallback {
                 + ", roofs without shape=" + ROOF_EMPTY.get() + ", replaced=" + REPLACED.get()
                 + ", fix B " + (enabled ? "ON" : "OFF") + ", back halves=" + MIRRORED.get() + ", slabs trimmed=" + CLIPPED.get()
                 + ", trim cards=" + TRIMMED.get() + ", meshes mirrored=" + RoofMirror.built() + ", texture swaps=" + RoofMirror.swapped()
+                + " of " + RoofMirror.placeCalls() + " places"
                 + ", mesh rejects=" + RoofMirror.rejected());
     }
 

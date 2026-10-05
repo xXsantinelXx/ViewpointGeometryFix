@@ -12,7 +12,7 @@ param(
 )
 
 $ErrorActionPreference = 'Continue'
-$Version = '0.3.8'
+$Version = '0.3.9'
 $ModId = 'ViewpointGeometryFix'
 $Pins = @{
     'e1a69eb743ede60b213a0fe7f8b83d4fcab773036d256cc4543a336f3b058a33' = 'projectzomboid.jar 42.21.0'
@@ -588,7 +588,7 @@ if (-not (Test-Path -LiteralPath $console)) {
     for ($i = 0; $i -lt $all.Count; $i++) {
         $l = [string]$all[$i]
         $tag = '{0}: {1}' -f ($i + 1), $l
-        if ($l -match 'VPGeometryFix|TileMeshes') {
+        if ($l -match 'VPGeometryFix|TileMeshes|viewpoint\.world\.(Recipe|WorldMesher)|Already loaded classes|already-loaded') {
             $ours.Add($tag)
             # error lines that directly follow one of ours (e.g. Lua stack traces), each only once
             for ($k = $i + 1; $k -lt [Math]::Min($all.Count, $i + 6); $k++) {
