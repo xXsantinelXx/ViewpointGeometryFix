@@ -12,7 +12,7 @@ param(
 )
 
 $ErrorActionPreference = 'Continue'
-$Version = '0.3.5'
+$Version = '0.3.7'
 $ModId = 'ViewpointGeometryFix'
 $Pins = @{
     'e1a69eb743ede60b213a0fe7f8b83d4fcab773036d256cc4543a336f3b058a33' = 'projectzomboid.jar 42.21.0'
@@ -333,6 +333,12 @@ foreach ($root in $wsRoots.Keys) {
         Where-Object { $_.FullName.Substring($root.Length) -match $geoRx } |
         ForEach-Object { $geoFiles.Add(('Mod {0}: {1} ({2} KB)' -f (Split-Path -Leaf $root), $_.FullName.Substring($root.Length).TrimStart('\', '/'), [Math]::Ceiling($_.Length / 1KB))) }
 }
+$localMods = [IO.Path]::Combine($Zomboid, 'mods')
+if (Test-Path -LiteralPath $localMods) {
+    Get-ChildItem -LiteralPath $localMods -Recurse -File -ErrorAction SilentlyContinue |
+        Where-Object { $_.FullName.Substring($localMods.Length) -match $geoRx } |
+        ForEach-Object { $geoFiles.Add(('Lokal {0} ({1} KB)' -f $_.FullName.Substring($localMods.Length).TrimStart('\', '/'), [Math]::Ceiling($_.Length / 1KB))) }
+}
 if ($geoFiles.Count -eq 0) { Line 'Keine Dateien mit tileGeometry/tileDepth im Namen gefunden.' }
 $geoFiles | Sort-Object | Select-Object -First 80 | ForEach-Object { Line $_ }
 if ($geoFiles.Count -gt 80) { Line ('(' + ($geoFiles.Count - 80) + ' weitere ausgelassen)') }
@@ -407,6 +413,38 @@ if ($pz) {
     }
 }
 
+# ---------------------------------------------------------------- depth assignments
+# In 0.2.2 Viewpoint returned the shape of a DIFFERENT tile for some roof sprites
+# (e.g. roofs_01_14 = roofs_01_4). Candidate source: the game's tile-to-tile
+# depth assignment table. Read-only search for the affected names.
+Section '4d tileDepthTextureAssignments.txt: Dach-Zuordnungen'
+$assignNames = @('roofs_01_14', 'roofs_01_71', 'roofs_02_14', 'roofs_30_01_77', 'roofs_30_02_80', 'roofs_30_08_107',
+    'roofs_accents_30_01_22', 'roofs_accents_01_4', 'roofs_01_118', 'roofs_02_118', 'roofs_01_11', 'roofs_01_12', 'roofs_01_69')
+if ($pz) {
+    $tda = [IO.Path]::Combine($pz, 'media', 'tileDepthTextureAssignments.txt')
+    if (Test-Path -LiteralPath $tda -PathType Leaf) {
+        $tdaLines = @(Get-Content -LiteralPath $tda -ErrorAction SilentlyContinue)
+        $roofCount = @($tdaLines | Where-Object { $_ -like '*roofs_*' }).Count
+        Line ("Datei: $tda, {0} Zeilen, davon mit roofs_: {1}" -f $tdaLines.Count, $roofCount)
+        Line '--- erste 12 Zeilen (Aufbau)'
+        $tdaLines | Select-Object -First 12 | ForEach-Object { Line ('  ' + $_) }
+        foreach ($n in $assignNames) {
+            $rx = '(?<![A-Za-z0-9_])' + [Regex]::Escape($n) + '(?![0-9])'
+            $hits = @()
+            for ($i = 0; $i -lt $tdaLines.Count; $i++) {
+                if ($tdaLines[$i] -match $rx) { $hits += $i }
+            }
+            if ($hits.Count -eq 0) { Line ("--- $n" + ': nicht enthalten'); continue }
+            Line ("--- $n" + ': ' + $hits.Count + ' Treffer')
+            foreach ($h in ($hits | Select-Object -First 3)) {
+                $from = [Math]::Max(0, $h - 2)
+                $to = [Math]::Min($tdaLines.Count - 1, $h + 2)
+                for ($j = $from; $j -le $to; $j++) { Line ('  ' + ($j + 1) + ': ' + $tdaLines[$j]) }
+            }
+        }
+    } else { Line "Nicht vorhanden: $tda" }
+}
+
 # ---------------------------------------------------------------- this mod
 Section '5 ViewpointGeometryFix (diese Mod)'
 $mods = [IO.Path]::Combine($Zomboid, 'mods')
@@ -439,6 +477,13 @@ foreach ($p in $infos) {
     if (Test-Path -LiteralPath $lua) { Line '    Lua: vorhanden' } else { Line "    Lua: FEHLT ($lua)"; Finding 'Lua-Datei der Mod fehlt - ZIP neu entpacken.' }
     $common = [IO.Path]::Combine((Split-Path -Parent $dir), 'common')
     if (Test-Path -LiteralPath $common) { Line '    common-Ordner: vorhanden' } else { Line '    common-Ordner: FEHLT' }
+    $roofData = [IO.Path]::Combine($dir, 'media', 'tileGeometry.txt')
+    if (Test-Path -LiteralPath $roofData -PathType Leaf) {
+        $rd = @(Get-Content -LiteralPath $roofData -ErrorAction SilentlyContinue)
+        $rdSets = @($rd | Where-Object { $_ -match '^\s*name\s*=\s*(roofs_[^,\s]+)' } | ForEach-Object { $Matches[1] })
+        $rdTiles = @($rd | Where-Object { $_ -like '*(VPGeometryFix)*' }).Count
+        Line ('    Dach-Fix A (tileGeometry.txt): installiert, ' + $rdTiles + ' Tiles in ' + $rdSets.Count + ' Tilesets, geaendert ' + (Get-Item -LiteralPath $roofData).LastWriteTime)
+    } else { Line '    Dach-Fix A (tileGeometry.txt): nicht installiert' }
     if (($p -ne $expected) -and $p.StartsWith($mods)) { Finding "Mod liegt an falscher Stelle: $p - richtig waere $expected" }
 }
 if ($infos.Count -gt 1) { Finding "Mod mehrfach installiert - alle Kopien ausser $expected loeschen." }
@@ -478,7 +523,7 @@ if (-not (Test-Path -LiteralPath $ownLog)) {
     if ($logAll.Count -gt 0) { $session = @($logAll[$start..($logAll.Count - 1)]) }
     Line ("Datei: $ownLog, letzter Start ab Zeile {0}, geaendert {1}" -f ($start + 1), (Get-Item -LiteralPath $ownLog).LastWriteTime)
     $roofLines = @($session | Where-Object { $_ -match 'roof|Java component loaded' })
-    Add-Block 'Dach-Zeilen' $roofLines 160 $false 800
+    Add-Block 'Dach-Zeilen' $roofLines 700 $false 800
     $stats = @($session | Where-Object { $_ -like '*roof fix B stats*' })
     $seenEmpty = @($session | Where-Object { $_ -like '*roof seen:*no shape*' })
     if ($stats.Count -eq 0) {
@@ -486,6 +531,39 @@ if (-not (Test-Path -LiteralPath $ownLog)) {
     } elseif (@($session | Where-Object { $_ -like '*roof fix B: * <- *' }).Count -eq 0) {
         $ts = @($seenEmpty | ForEach-Object { if ($_ -match 'roof seen: (roofs_.+?)_\d+ ') { $Matches[1] } } | Sort-Object -Unique)
         Finding ('Dach-Fix B hat nichts ersetzt. Dach-Tilesets ohne Form, die Viewpoint wirklich angefragt hat: ' + ($ts -join ', ') + ' (Details Abschnitt 5b).')
+    }
+}
+
+# ---------------------------------------------------------------- own reports
+Section '5c Dach-Daten und Tile-Untersuchungen (neueste)'
+$inspDir = [IO.Path]::Combine($Zomboid, 'VPGeometryFix', 'inspect')
+if (-not (Test-Path -LiteralPath $inspDir)) {
+    Line 'Noch keine Berichte (Fenster: "Dach-Daten" bzw. "Tile untersuchen").'
+} else {
+    $rdFile = Get-ChildItem -LiteralPath $inspDir -Filter 'roofdata_*.txt' -File -ErrorAction SilentlyContinue |
+        Sort-Object LastWriteTime -Descending | Select-Object -First 1
+    if ($rdFile) {
+        Line ('--- ' + $rdFile.Name + ' (' + $rdFile.LastWriteTime + ')')
+        $rd = @(Get-Content -LiteralPath $rdFile.FullName -ErrorAction SilentlyContinue)
+        $rdCap = 1200
+        $rd | Select-Object -First $rdCap |
+            ForEach-Object { $t = $_; if ($t.Length -gt 800) { $t = $t.Substring(0, 800) + ' ...' }; Line $t }
+        if ($rd.Count -gt $rdCap) { Line ('(' + ($rd.Count - $rdCap) + ' weitere Zeilen ausgelassen, ganze Datei: ' + $rdFile.FullName + ')') }
+    } else { Line 'Kein Dach-Daten-Bericht (Fenster: "Dach-Daten").' }
+    $insp = @(Get-ChildItem -LiteralPath $inspDir -Filter 'inspect_*.txt' -File -ErrorAction SilentlyContinue |
+        Sort-Object LastWriteTime -Descending | Select-Object -First 10)
+    Line ('--- Tile-Untersuchungen: ' + $insp.Count + ' (neueste zuerst, je Zusammenfassung und kompakte Formen)')
+    foreach ($f in $insp) {
+        Line ('  ' + $f.Name)
+        $c = @(Get-Content -LiteralPath $f.FullName -ErrorAction SilentlyContinue)
+        $inSummary = $false
+        foreach ($l in $c) {
+            if ($l -eq '--- summary') { $inSummary = $true; continue }
+            if ($inSummary -or $l -like '*compact:*') {
+                $t = $l.Trim(); if ($t.Length -gt 800) { $t = $t.Substring(0, 800) + ' ...' }
+                Line ('    ' + $t)
+            }
+        }
     }
 }
 

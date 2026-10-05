@@ -50,6 +50,10 @@ public final class ViewpointGeometry {
         if (sib != null) sb.append(" fixB=").append(vpgeometryfix.fix.RoofFallback.isEnabled() ? "an" : "aus").append("<-").append(sib);
         Object rise = callStatic(WORLD_MESHER, "rise", obj);
         if (rise != null) sb.append(" rise=").append(rise);
+        // WorldMesher.hasModel(IsoObject) [V1 signature]: true = drawn from a model pack instead of / besides tile geometry [H]
+        Object model = callStatic(WORLD_MESHER, "hasModel", obj);
+        if (model != null) sb.append(" model=").append(model);
+
         return sb.toString();
     }
 
@@ -61,6 +65,7 @@ public final class ViewpointGeometry {
         List<Object> geo = SquareInspector.asList(callStatic(TILE_MESHES, "geometryFor", sprite));
         if (geo == null) return "      viewpoint geometryFor: unknown\n";
         StringBuilder sb = new StringBuilder("      viewpoint geometryFor: " + geo.size() + " shape(s)\n");
+        if (!geo.isEmpty()) sb.append("        compact: ").append(vpgeometryfix.fix.RoofFallback.describe(geo)).append('\n');
         for (int i = 0; i < geo.size(); i++) {
             ObjectDumper d = new ObjectDumper(EXPAND, 2, 80, 16);
             d.dump("        #" + i + " ", geo.get(i), 0);

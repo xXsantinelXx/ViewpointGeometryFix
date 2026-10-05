@@ -21,7 +21,7 @@
 ]]
 
 VPGF = VPGF or {}
-VPGF.VERSION = "0.2.2-test"
+VPGF.VERSION = "0.2.3-test"
 VPGF.PREFIX = "[VPGeometryFix] "
 -- First line in console.txt: proves the Lua file was loaded at all.
 print(VPGF.PREFIX .. "Lua loaded " .. VPGF.VERSION)
@@ -271,6 +271,16 @@ function VPGF.setRoofFix(on)
         "fuer die volle Wirkung das Spiel neu starten (Einstellung bleibt gespeichert)." })
 end
 
+-- "Dach-Daten": one Java report on Viewpoint's roof meshes and shape sources (no patch, on demand).
+function VPGF.roofData()
+    if not VPGF.java() then setResults({ "Dach-Daten brauchen den Java-Teil (ZombieBuddy)" }) return end
+    local s = try(VPGF_roofData)
+    local lines = { "Dach-Daten:" }
+    for _, l in ipairs(splitLines(s or "fehlgeschlagen")) do table.insert(lines, l) end
+    setResults(lines)
+    return s
+end
+
 function VPGF.viewpointState()
     if not VPGF.java() then setResults({ "braucht den Java-Teil (ZombieBuddy)" }) return end
     local s = try(VPGF_viewpointState)
@@ -318,7 +328,7 @@ end
 -- Panel (vanilla ISPanel/ISButton). Fallback: plain text overlay.
 -------------------------------------------------------------------------------
 
-local PANEL_W, LINE_H, BTN_H = 470, 16, 22
+local PANEL_W, LINE_H, BTN_H = 560, 16, 22
 
 local function buttonDefs()
     return {
@@ -334,6 +344,7 @@ local function buttonDefs()
         { function() return hoverOn and "Hover AUS" or "Hover AN" end, function() VPGF.setHover(not hoverOn) end },
         { function() return VPGF.roofFix() and "Dach-Fix AUS" or "Dach-Fix AN" end,
           function() VPGF.setRoofFix(not VPGF.roofFix()) end },
+        { function() return "Dach-Daten" end, function() VPGF.roofData() end },
         { function() return "X" end, function() VPGF.hidePanel() end },
     }
 end
@@ -358,8 +369,9 @@ local function createPanel()
         ISPanel.createChildren(self)
         self.vpgfButtons = {}
         local x = 6
-        for i, def in ipairs(buttonDefs()) do
-            local w = (i == 6) and 24 or 84
+        local defs = buttonDefs()
+        for i, def in ipairs(defs) do
+            local w = (i == #defs) and 24 or 84
             local b = ISButton:new(x, 0, w, BTN_H, def[1](), self, function() def[2]() end)
             b:initialise()
             b:instantiate()

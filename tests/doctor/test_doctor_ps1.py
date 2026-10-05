@@ -82,6 +82,9 @@ with tempfile.TemporaryDirectory() as t:
     (good / "mod.info").write_text("id=ViewpointGeometryFix\nmodversion=0.1.3-diag\njavaJarFile=media/java/client/ViewpointGeometryFix.jar\n")
     (good / "media/lua/client/VPGeometryFix_Main.lua").write_text("--")
     (zb / "mods/ViewpointGeometryFix/common").mkdir()
+    (good / "media/tileGeometry.txt").write_text("tileGeometry\n{\n    tileset\n    {\n        name = roofs_02,\n"
+        "        /* roofs_02 xy=0x0 <- roofs_01 (VPGeometryFix) */\n        /* roofs_02 xy=1x0 <- roofs_01 (VPGeometryFix) */\n"
+        "    }\n    tileset\n    {\n        name = roofs_30_02,\n        /* roofs_30_02 xy=0x0 <- roofs_30_01 (VPGeometryFix) */\n    }\n}\n")
     (zb / "console.txt").write_text("\n".join(
         ["LOG : General > [ZB] ZombieBuddy v2.3.4 loading ViewpointGeometryFix.jar",
          "LOG : Lua > [VPGeometryFix] Lua loaded 0.1.3-diag",
@@ -104,6 +107,13 @@ with tempfile.TemporaryDirectory() as t:
         "roof seen: roofs_01_0 - has 1 shape(s)",
         "unrelated line"]) + "\n")
     (zb / "VPGeometryFix/config.properties").write_text("#c\nroofFixB=true\n")
+    (pz / "media/tileDepthTextureAssignments.txt").write_text(
+        "VERSION = 1\nroofs_01_14 = roofs_01_4\nroofs_01_140 = x\nwalls_01_0 = walls_01_1\n")
+    insp = zb / "VPGeometryFix/inspect"
+    insp.mkdir(parents=True)
+    (insp / "roofdata_20261005_210000.txt").write_text("VPGeometryFix roof data\n--- shape sources\nsources: own 1, assigned 2\n")
+    (insp / "inspect_20261005_210000_000_1_2_0.txt").write_text(
+        "head\n        compact: Box{min=(-1 0 -1)}\nnoise\n--- summary\nTILE 1,2,0 Objects#0 IsoObject sprite=roofs_01_14\n")
     out = t / "out/VPGF-Report.txt"
     out.parent.mkdir()
     r = subprocess.run([pwsh, "-NoProfile", "-File", str(PS1), "-SteamLib", str(lib), "-Zomboid", str(zb), "-Out", str(out)],
@@ -117,11 +127,17 @@ with tempfile.TemporaryDirectory() as t:
                    "Viewpoint-Add-ons im Workshop-Ordner (1): ViewpointCar 1.0",
                    "Klassen gesamt: 6, davon mit Geometrie-/Render-Stichwort: 5",
                    "      viewpoint.render.WorldRenderer", "      viewpoint.world.ChunkWalk",
-                   "    Lua: vorhanden", "    JAR: FEHLT",
+                   "    Lua: vorhanden", "    JAR: FEHLT", "    Dach-Fix A (tileGeometry.txt): installiert, 3 Tiles in 2 Tilesets",
                    "Mod-Lua geladen: ja, Startblock: ja, Java-Teil der Mod: NEIN, ZombieBuddy aktiv: ja, Fehlerzeilen der Mod: 1",
                    "--- Zeilen dieser Mod (6)", "ERROR in OnGameStart: boom", "attempted index: x of non-table",
                    "--- ZombieBuddy (1)", "--- Viewpoint (ohne Leistungsmeldungen) (1)", "[Viewpoint] renderer ready",
                    "Der Lua-Teil der Mod laeuft, der Java-Teil nicht",
+                   "=== 4d tileDepthTextureAssignments.txt", "davon mit roofs_: 2",
+                   "--- roofs_01_14: 1 Treffer", "  2: roofs_01_14 = roofs_01_4", "--- roofs_01_71: nicht enthalten",
+                   "=== 5c Dach-Daten", "--- roofdata_20261005_210000.txt", "sources: own 1, assigned 2",
+                   "--- Tile-Untersuchungen: 1", "    compact: Box{min=(-1 0 -1)}",
+                   "    TILE 1,2,0 Objects#0 IsoObject sprite=roofs_01_14",
+                   "Lokal ViewpointGeometryFix",
                    "=== 5b VPGeometryFix.log", "  roofFixB=true", "--- Dach-Zeilen (5)",
                    "roof seen: roofs_01_77 - no shape, no sibling",
                    "Dach-Fix B hat nichts ersetzt. Dach-Tilesets ohne Form, die Viewpoint wirklich angefragt hat: roofs_01, roofs_30_02", "Die Mod meldet 1 Fehler", "=== ERGEBNIS ==="]:

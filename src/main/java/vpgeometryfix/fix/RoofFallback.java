@@ -44,7 +44,10 @@ public final class RoofFallback {
     private static final AtomicLong ROOF_SHAPED = new AtomicLong();
     private static final Map<String, Boolean> LOGGED = new ConcurrentHashMap<>();
     private static final Map<String, Boolean> SEEN = new ConcurrentHashMap<>();
-    private static final int SEEN_MAX = 80;
+    private static final Map<String, Boolean> EMPTY_SEEN = new ConcurrentHashMap<>();
+    private static final Map<String, String> SHAPE_FIRST = new ConcurrentHashMap<>();
+    static final int SEEN_MAX = 400;
+    static final int EMPTY_SEEN_MAX = 200;
     private static volatile Method geometryFor;
     private static volatile Object spriteManager;
     private static volatile Method getSprite;
@@ -109,23 +112,26 @@ public final class RoofFallback {
             if (!empty) {
                 ROOF_SHAPED.incrementAndGet();
                 if (SEEN.size() < SEEN_MAX && !SEEN.containsKey(name)) {
-                    seen(name, "has " + original.size() + " shape(s): " + describe(original));
+                    String text = describe(original);
+                    String first = SHAPE_FIRST.size() < SEEN_MAX ? SHAPE_FIRST.putIfAbsent(key(original), name) : null;
+                    seen(name, "has " + original.size() + " shape(s): "
+                            + (first == null || first.equals(name) ? text : "same as " + first));
                 }
                 return null;
             }
             ROOF_EMPTY.incrementAndGet();
             String sibName = siblingSprite(name);
             if (sibName == null) {
-                seen(name, "no shape, no sibling");
+                emptySeen(name, "no shape, no sibling");
                 return null;
             }
             if (!enabled) {
-                seen(name, "no shape, fix B off");
+                emptySeen(name, "no shape, fix B off");
                 return null;
             }
             Object sibSprite = sprite(sibName);
             if (sibSprite == null) {
-                seen(name, "no shape, sibling sprite " + sibName + " not found");
+                emptySeen(name, "no shape, sibling sprite " + sibName + " not found");
                 return null;
             }
             List<?> shapes;
@@ -136,12 +142,13 @@ public final class RoofFallback {
                 BUSY.remove();
             }
             if (shapes == null || shapes.isEmpty()) {
-                seen(name, "no shape, sibling " + sibName + " has none either");
+                emptySeen(name, "no shape, sibling " + sibName + " has none either");
                 return null;
             }
             REPLACED.incrementAndGet();
+            emptySeen(name, "no shape, replaced by fix B <- " + sibName);
             if (LOGGED.putIfAbsent(name, Boolean.TRUE) == null && LOGGED.size() <= 20) {
-                Log.fileOnly("roof fix B: " + name + " <- " + sibName + " (" + shapes.size() + " shape(s))");
+                Log.fileOnly("roof fix B: " + name + " <- " + sibName + " (" + shapes.size() + " shape(s)): " + describe(shapes));
             }
             return new ArrayList<>(shapes);
         } catch (Throwable t) {
@@ -154,6 +161,67 @@ public final class RoofFallback {
     private static void seen(String name, String what) {
         if (SEEN.size() < SEEN_MAX && SEEN.putIfAbsent(name, Boolean.TRUE) == null) {
             Log.fileOnly("roof seen: " + name + " - " + what);
+            if (SEEN.size() == SEEN_MAX) Log.fileOnly("roof seen: limit of " + SEEN_MAX + " sprites with shape reached");
+        }
+    }
+
+    /** Like {@link #seen} for roof sprites WITHOUT shape, with its own cap so none is lost behind shaped ones. */
+    private static void emptySeen(String name, String what) {
+        if (EMPTY_SEEN.size() < EMPTY_SEEN_MAX && EMPTY_SEEN.putIfAbsent(name, Boolean.TRUE) == null) {
+            Log.fileOnly("roof seen: " + name + " - " + what);
+        }
+    }
+
+    /** Names of the roof sprites seen so far (with and without shape), for on-demand diagnostics. */
+    public static List<String> seenNames() {
+        ArrayList<String> out = new ArrayList<>(SEEN.keySet());
+        out.addAll(EMPTY_SEEN.keySet());
+        java.util.Collections.sort(out);
+        return out;
+    }
+
+    /**
+     * Viewpoint's own geometryFor result for a sprite, with fix B kept out of it (BUSY), or null.
+     * Diagnostics only; called on demand, never per frame.
+     */
+    public static List<?> rawGeometryFor(Object sprite) {
+        if (sprite == null) return null;
+        BUSY.set(Boolean.TRUE);
+        try {
+            return invokeGeometryFor(sprite);
+        } catch (Throwable t) {
+            return null;
+        } finally {
+            BUSY.remove();
+        }
+    }
+
+    /**
+     * Existing sprite by name, or null. Looks in the manager's name map first
+     * (field NamedMap/namedMap [B41 name, B42 U]) so diagnostics do not create
+     * sprites for unknown names; falls back to getSprite.
+     */
+    public static Object spriteByName(String name) {
+        if (name == null) return null;
+        try {
+            Object mgr = Reflect.staticField("zombie.iso.sprite.IsoSpriteManager", "instance");
+            for (String f : new String[] {"NamedMap", "namedMap"}) {
+                Object map = Reflect.field(mgr, f);
+                if (map instanceof Map<?, ?> m) return m.get(name);
+            }
+            // name map under another name: the first instance field that is a Map [H]
+            if (mgr != null) {
+                for (java.lang.reflect.Field f : mgr.getClass().getDeclaredFields()) {
+                    if (Modifier.isStatic(f.getModifiers()) || !Map.class.isAssignableFrom(f.getType())) continue;
+                    f.setAccessible(true);
+                    if (f.get(mgr) instanceof Map<?, ?> m) return m.get(name);
+                }
+            }
+            // no name map at all: getSprite, which may register a sprite for an unknown name [B41 behaviour, B42 U];
+            // callers only pass names the game itself reported (seen roofs, assigned tiles)
+            return sprite(name);
+        } catch (Throwable t) {
+            return null;
         }
     }
 
@@ -162,8 +230,17 @@ public final class RoofFallback {
      * Instance fields of the shape class and its superclasses [field names: U, read reflectively].
      */
     public static String describe(List<?> shapes) {
+        return describe(shapes, 4, 700);
+    }
+
+    /** Untruncated form of {@link #describe} for equality checks (dedupe, source verdicts). */
+    public static String key(List<?> shapes) {
+        return describe(shapes, Integer.MAX_VALUE, Integer.MAX_VALUE);
+    }
+
+    static String describe(List<?> shapes, int maxShapes, int maxChars) {
         StringBuilder sb = new StringBuilder();
-        for (int i = 0; i < shapes.size() && i < 4; i++) {
+        for (int i = 0; i < shapes.size() && i < maxShapes; i++) {
             Object g = shapes.get(i);
             if (i > 0) sb.append("; ");
             if (g == null) {
@@ -189,8 +266,8 @@ public final class RoofFallback {
             }
             sb.append('}');
         }
-        if (shapes.size() > 4) sb.append("; +").append(shapes.size() - 4).append(" more");
-        return sb.length() > 700 ? sb.substring(0, 700) + " ..." : sb.toString();
+        if (shapes.size() > maxShapes) sb.append("; +").append(shapes.size() - maxShapes).append(" more");
+        return sb.length() > maxChars ? sb.substring(0, maxChars) + " ..." : sb.toString();
     }
 
     private static String value(Object v) {

@@ -254,6 +254,62 @@ public final class AllTests {
             });
             // without ZombieBuddy the advice is not woven in, so vpGeom stays 0 here; in game it shows the sibling shapes
             contains(LuaBridge.lastSummary(), "sprite=roofs_03_5 kind~ROOF vpGeom=0 fixB=an<-roofs_01_5");
+            contains(LuaBridge.lastSummary(), "rise=0.25 model=false");
+        });
+
+        test("MeshProbe statics, projection probe and cache snapshot", () -> {
+            String st = String.join("\n", vpgeometryfix.diag.MeshProbe.statics());
+            contains(st, "TileMeshes: GAME=game");
+            contains(st, "MeshBuilder: TO_ISO_CAMERA=(0.6120 0.5000 0.6120) UV_INSET=0.0010");
+            contains(st, "TileMesh: STRIDE=5");
+            String fp = String.join("\n", vpgeometryfix.diag.MeshProbe.frameProbe());
+            contains(fp, "frame(1.00,0.00,0.00) = x 64.0000, y 32.0000");
+            contains(fp, "frame(0.00,1.00,0.00) = x 0.0000, y -78.3800");
+            viewpoint.world.TileMeshes.fillCacheForTests();
+            List<String> c = vpgeometryfix.diag.MeshProbe.cacheSnapshot("roofs_");
+            contains(c.get(0), "mesh cache: 3 entries, key fake.FakeSquare$FakeSprite, value viewpoint.world.TileMeshes$Held, 2 with prefix 'roofs_', of these EMPTY/null 1");
+            String all = String.join("\n", c);
+            contains(all, "roofs_01_0 - verts=2 floats=10 bounds~(-1.000 0.000 -1.000)..(1.000 0.050 1.000)");
+            contains(all, "roofs_01_11 - EMPTY verts=0 floats=0");
+            check(!all.contains("walls_01_0"));
+        });
+
+        test("GeometrySource: own, assigned, Viewpoint-only, none", () -> {
+            String r = String.join("\n", vpgeometryfix.diag.GeometrySource.report());
+            contains(r, "TileGeometryManager ok, mod ids [game], per-tile getter getGeometry; TileDepthTextureAssignmentManager ok");
+            contains(r, "roofs_01_0 => OWN(game) | game own=2 | vp=2 ");
+            contains(r, "roofs_02_14 => ASSIGNED(game->roofs_01_4) | game assigned=roofs_01_4 vp(assigned)=2 same | vp=2 ");
+            contains(r, "roofs_01_14 => VP-ONLY | vp=2 Polygon{points=[0.0, 0.0, 1.0, 1.0]}; Box{height=2.5}");
+            contains(r, "roofs_03_38 => NONE | vp=0");
+            // index -> col/row with 8 columns: only row 0 of roofs_01 has own data in the double
+            contains(r, "roofs_01_71 => VP-ONLY");
+            check(!r.contains("checks incomplete"));
+            contains(r, "unchecked 0");
+        });
+
+        test("roof fix B: replaced sprites are listed for the source report; shapes dedupe", () -> {
+            vpgeometryfix.fix.RoofFallback.setEnabled(true);
+            String out = captureStdout(() -> {
+                vpgeometryfix.fix.RoofFallback.apply(new FakeSquare.FakeSprite("roofs_04_9"), new java.util.ArrayList<>());
+                vpgeometryfix.fix.RoofFallback.apply(new FakeSquare.FakeSprite("roofs_01_40"), java.util.List.of(new viewpoint.world.TileMeshes.Box()));
+                vpgeometryfix.fix.RoofFallback.apply(new FakeSquare.FakeSprite("roofs_01_41"), java.util.List.of(new viewpoint.world.TileMeshes.Box()));
+            });
+            check(vpgeometryfix.fix.RoofFallback.seenNames().contains("roofs_04_9"));
+            String log = Files.readString(tmp.resolve("VPGeometryFix.log"));
+            contains(log, "roof seen: roofs_04_9 - no shape, replaced by fix B <- roofs_01_9");
+            contains(log, "roof seen: roofs_01_40 - has 1 shape(s): Box{height=2.5}");
+            contains(log, "roof seen: roofs_01_41 - has 1 shape(s): same as roofs_01_40");
+            check(out.isEmpty()); // file log only, nothing on the console
+        });
+
+        test("roof data report via the bridge", () -> {
+            String out = captureStdout(() -> {
+                String s = LuaBridge.roofData();
+                contains(s, "sources: own ");
+                contains(s, "roofdata_");
+            });
+            contains(out, "[VPGeometryFix] roof data: sources: own ");
+            contains(out, "[VPGeometryFix] report -> ");
         });
 
         System.out.println();

@@ -268,6 +268,51 @@ benannt. Das Diagnose-Werkzeug erzeugt dafür lokal ein Inventar
 (`inventory_viewpoint.txt`: alle Klassennamen + Signaturen der Klassen mit
 Schlüsselwörtern render/cull/visib/mesh/vertex/model/roof/wall/tile/…).
 
+### Update 2026-10-05 (4): Formwerte im Spiel (0.2.2-test) – Analyse mit Gegenprüfung
+
+Quelle: `VPGeometryFix.log` des Nutzers (Formwerte, die `TileMeshes.geometryFor`
+im Spiel lieferte) und die Daten-Datei aus Variante A. Jede Kernaussage wurde von
+einem unabhängigen Prüfer nachgerechnet; widerlegte Teile sind korrigiert.
+
+* **Viewpoint liefert die Spiel-Formen unverändert [V1]:** 31 von 31 vergleichbaren
+  Sprites stimmen mit dem Eintrag ihrer Quelle überein, z. B. `roofs_02_3` =
+  `roofs_01_3` (translate 0/2.031/0, rotate 0/0/−39.45, Box −1…1 × 0…0.05 × −1…1).
+* **Einheiten [V1 Rechnung]:** 1 Tile = 1.0, Ursprung Tile-Mitte, y = 0 Boden der
+  Ebene; Dachformen enden bei 2.4495 = √6 (= ein Stockwerk: H). Steigung je Tile
+  roofs_01 0.8165 (√6/3, 39.2°), roofs_30 0.408 (22.6°). Nur die Euler-Reihenfolge
+  Rx·Ry·Rz macht die 48 roofs_30_01-Platten konsistent; welche Viewpoint benutzt: U.
+* **Giebel-/Kantenleisten (`roofs_accents_01_*`, `roofs_accents_30_01_*`) [V1]:**
+  nur drei Boxen, unabhängig von der Dachneigung: senkrechte Platte
+  2.25 × 3.45 × 0.30 an der Nord- bzw. Westkante (min −1.5/−1/−0.5, max
+  0.75/2.45/−0.2 bzw. gespiegelt), reicht 1.0 unter den Boden und 1.0 Tile über das
+  Tile hinaus; dazu ein Pfosten (`_47`). Als sichtbare Fläche liegt die schräge
+  Leisten-Grafik auf einer senkrechten Platte → Kandidat Fehlerbild B [H].
+* **Stufenblöcke [V1]:** `roofs_30_01` Reihe 5 (Index 40–45) sind achsparallele
+  Blöcke 1.02 × 0.45 × 1.02 in Stufen von 0.4 (Hüllquader der sechs Neigungsstufen).
+  `roofs_30_01_77`, `roofs_30_02_80` (= 45) und `roofs_30_08_107` (= 43) bekommen
+  solche Blöcke. Als Körper gelesen eine Treppe → Kandidat Fehlerbild D [H].
+* **roofs_01-Platten [V1]:** 2 × 2 Tiles groß (0.5 Überstand quer, ~0.3 längs),
+  obere Platten schneiden sich am First in einem X (0.26 über √6). Sichtbarkeit
+  hängt von Viewpoints Texturierung ab [H].
+* **Leere Dächer [V1]:** `roofs_01_11`, `roofs_01_12`, `roofs_01_69` ohne Form
+  (kein Fix erreicht sie); Liste unvollständig (Log-Grenze 80) → Kandidat C [H].
+* **Zweite Formquelle [V1 Befund, Mechanismus U]:** mindestens 67 Dach-Sprites
+  haben eine Form, die weder in `tileGeometry.txt` noch in Datei A steht, oft die
+  eines anderen Tiles (`roofs_01_14` = `roofs_01_4`, `roofs_01_71` = `roofs_01_2`).
+  Kandidaten: `tileDepthTextureAssignments.txt` (`getAssignedTileName`) oder
+  `TileMeshes.lookup`. 0.2.3 prüft das (`GeometrySource`, Doctor 4d).
+* **Variante A ohne messbare Wirkung [V1 für die geloggten Sprites]:** alle von A
+  abgedeckten Sprites hätten die gleichen Werte auch ohne A; ob Spiel/Viewpoint A
+  überhaupt lesen: U.
+* **Texturierung [V1 Namen, H Rolle]:** `MeshBuilder.TO_ISO_CAMERA`,
+  `frameX/frameY(Vector3f)`, `UV_INSET` sprechen für eine isometrische Projektion
+  der Sprite-Grafik auf die 3D-Flächen; dann folgt die Grafik der (falschen)
+  Geometrie. 0.2.3 misst das (`MeshProbe.frameProbe`).
+* **Neigung 39.2° = Kante-auf-Winkel der Iso-Kamera [V1 Rechnung, H Folgerung]:**
+  nach Norden/Westen abfallende roofs_01-Flächen haben in der Iso-Ansicht keine
+  sichtbare Grafik und im Spiel keine Form; aus der Ego-Perspektive fehlt dort
+  Fläche → weiterer Kandidat für C.
+
 ## 5. Andere B42-Mods, die Rendering/Sichtbarkeit per ZombieBuddy ändern [V1]
 
 * **PeekAView** (MIT): Wand-Cutaway-Reichweite, Baum-Fade, Treppenansicht – patcht

@@ -116,6 +116,7 @@ function install_java()
   function VPGF_inventory(w) call("inventory", w) return "C:/x/inv.txt" end
   function VPGF_status() return "Java-Teil: OK\nPZ: 42.21.0\nViewpoint: erkannt 0.1.5a-hotfix\nZombieBuddy: 2.3.4" end
   function VPGF_lastSummary() return "TILE 101,200,0 Objects#0 IsoObject sprite=roofs_01_12 kind~ROOF" end
+  function VPGF_roofData() call("roofData") return "sources: own 3, assigned 5\nC:/x/roofdata.txt" end
 end
 """
 
@@ -139,7 +140,7 @@ def fresh(with_java, with_isui=True):
     for f in sorted(LUA_DIR.glob("*.lua")):
         lua.execute(f.read_text(encoding="utf-8"))
     first = list(lua.eval("OUT").values())
-    check(first == ["[VPGeometryFix] Lua loaded 0.2.2-test"], f"load line: {first}")
+    check(first == ["[VPGeometryFix] Lua loaded 0.2.3-test"], f"load line: {first}")
     lua.execute("OUT = {}")
     return lua
 
@@ -190,7 +191,7 @@ def t_panel_at_game_start():
     check(len(out(lua)) == 0, f"Java prints the startup block, Lua adds nothing: {out(lua)}")
     lua.execute("BUTTONS[1].target:render()")
     d = drawn(lua)
-    check(d[0] == "Viewpoint Geometry Fix 0.2.2-test", f"title: {d}")
+    check(d[0] == "Viewpoint Geometry Fix 0.2.3-test", f"title: {d}")
     check("Viewpoint: erkannt 0.1.5a-hotfix" in d and "Diagnose: AUS" in d, f"status: {d}")
     check(any("Diagnose AN" in t for t in d), f"hint: {d}")
 
@@ -269,7 +270,7 @@ def t_main_menu_badge():
     lua = fresh(False)
     lua.execute("Events.OnMainMenuEnter.fire(); Events.OnPostUIDraw.fire()")
     d = list(lua.eval("DRAWN").values())
-    check(any("VPGeometryFix 0.2.2-test geladen - Java-Teil: NICHT geladen" in t for t in d), f"badge: {d}")
+    check(any("VPGeometryFix 0.2.3-test geladen - Java-Teil: NICHT geladen" in t for t in d), f"badge: {d}")
     lua.execute("Events.OnGameStart.fire()")
     check(lua.eval("#Events.OnPostUIDraw.list") == 0, "badge removed in game (panel uses ISPanel)")
 
@@ -285,6 +286,19 @@ def t_handler_errors_are_reported():
     """)
     errs = [l for l in out(lua) if "ERROR in ContextMenu" in l]
     check(len(errs) == 1 and "menu broken" in errs[0], f"error reported once: {out(lua)}")
+
+
+def t_roof_data_button():
+    lua = fresh(True)
+    lua.execute("Events.OnGameStart.fire(); CALLS = {}")
+    lua.execute('button("Dach-Daten"):click()')
+    check(calls(lua) == [["roofData"]], f"roof data call: {calls(lua)}")
+    lua.execute("DRAWN = {}; BUTTONS[1].target:render()")
+    d = drawn(lua)
+    check("sources: own 3, assigned 5" in d and "C:/x/roofdata.txt" in d, f"panel shows result: {d}")
+    check(out(lua) == [], f"no Lua console lines: {out(lua)}")
+    lua.execute('button("X"):click()')
+    check(lua.eval("BUTTONS[1].target.inUI") is False, "X is still the last button")
 
 
 def main():
