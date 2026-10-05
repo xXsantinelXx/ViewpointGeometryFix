@@ -164,5 +164,14 @@ with tempfile.TemporaryDirectory() as t:
     cls = out.parent / "VPGF-Viewpoint-Classes.txt"
     check(cls.exists() and "viewpoint.input.Look" in cls.read_text(encoding="utf-8-sig"), "class list file")
 
+    # console.txt cut while the game ran (no startup lines): no false "not loaded" finding
+    (zb / "console.txt").write_text("LOG  : Lua          f:71334> [ViewpointPlaceItems] Object tried to call nil\n" * 5)
+    r2 = subprocess.run([pwsh, "-NoProfile", "-File", str(PS1), "-SteamLib", str(lib), "-Zomboid", str(zb), "-Out", str(out)],
+                        capture_output=True, text=True)
+    rep2 = out.read_text(encoding="utf-8-sig") if out.exists() else ""
+    check("console.txt beginnt mitten im Spiel" in rep2, "cut console noticed")
+    check("NICHT geladen" not in rep2.split("=== ERGEBNIS ===")[1], "no false not-loaded finding with a cut console.txt")
+    check("ZombieBuddy laeuft nicht" not in rep2, "no false ZombieBuddy finding with a cut console.txt")
+
 print(f"doctor ps1: {'ok' if failed == 0 else str(failed) + ' failed'}")
 sys.exit(1 if failed else 0)

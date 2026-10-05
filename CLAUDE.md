@@ -12,10 +12,17 @@ Lies zuerst README.md, docs/RESEARCH.md, docs/ARCHITECTURE.md.
 * Rendering-Änderungen erst ab Phase 3 (siehe ARCHITECTURE.md) und nur, wenn
   der Nutzer es ausdrücklich freigibt. Freigegeben (2026-10-05): der schaltbare
   Dach-Fix (Varianten A und B, `fix/RoofFallback`, `Patch_RoofGeometry`,
-  `VPGF-RoofData`). Weitere Eingriffe brauchen eine neue Freigabe.
+  `VPGF-RoofData`). Zweite Freigabe (2026-10-05, Nutzer: „JA; ALLES FIXEN“):
+  Dach-Korrekturen, die auch vorhandene Viewpoint-Ergebnisse ändern – gespiegelte
+  hintere Dachhälften inkl. Mesh/Textur (`fix/RoofMirror`, `Patch_TileMeshCreate`,
+  `Patch_Recipe*`), zugeschnittene Dachplatten und Giebelleisten
+  (`fix/RoofShapes`). Nur für Dach-Sprites (`roofs_*`), alles schaltbar.
+  Andere Eingriffe (Wände, Objekte, Sichtbarkeit) brauchen eine neue Freigabe.
 * `@Patch`-Klassen (ZombieBuddy-2.x-API, Stub in `src/stubs`) müssen direkt im
-  Paket `vpgeometryfix` liegen und dürfen nur leere/fehlende Ergebnisse
-  ergänzen, nie vorhandene Viewpoint-Ergebnisse überschreiben.
+  Paket `vpgeometryfix` liegen. Sie dürfen vorhandene Viewpoint-Ergebnisse nur
+  im freigegebenen Umfang (Dächer, s. o.) und nur über Kopien ändern – nie
+  Spiel- oder Viewpoint-Objekte selbst verändern – und müssen bei jedem
+  Fehler das Original unverändert lassen.
 * Nicht spekulieren: jede Aussage über Spiel-/Viewpoint-Interna mit
   Belegstufe [V1]/[V2]/[U]/[H] versehen (Definition in RESEARCH.md).
   Unverifizierte Namen nur reflektiv und abgesichert verwenden.

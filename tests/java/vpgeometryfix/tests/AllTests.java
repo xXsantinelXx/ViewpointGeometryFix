@@ -235,12 +235,12 @@ public final class AllTests {
 
         test("roof fix status, toggle and TILE marker", () -> {
             vpgeometryfix.fix.RoofFallback.setEnabled(true);
-            contains(LuaBridge.roofFixStatus(), "Dach-Fix B (Code): AN, Patch aktiv");
+            contains(LuaBridge.roofFixStatus(), "Dach-Fix (Code): AN, Patch aktiv");
             contains(LuaBridge.roofFixStatus(), "  Daecher: mit Form ");
             contains(LuaBridge.roofFixStatus(), "Dach-Fix A (Datei): nicht installiert");
-            contains(LuaBridge.status(), "Dach-Fix B (Code): AN");
+            contains(LuaBridge.status(), "Dach-Fix (Code): AN");
             String out = captureStdout(() -> LuaBridge.setRoofFix(false));
-            contains(out, "roof fix B: OFF");
+            contains(out, "roof fix: OFF");
             check(!LuaBridge.isRoofFix());
             Config.load();
             check(!Config.getBool("roofFixB", true)); // persisted
@@ -290,13 +290,13 @@ public final class AllTests {
         test("roof fix B: replaced sprites are listed for the source report; shapes dedupe", () -> {
             vpgeometryfix.fix.RoofFallback.setEnabled(true);
             String out = captureStdout(() -> {
-                vpgeometryfix.fix.RoofFallback.apply(new FakeSquare.FakeSprite("roofs_04_9"), new java.util.ArrayList<>());
+                vpgeometryfix.fix.RoofFallback.apply(new FakeSquare.FakeSprite("roofs_04_20"), new java.util.ArrayList<>());
                 vpgeometryfix.fix.RoofFallback.apply(new FakeSquare.FakeSprite("roofs_01_40"), java.util.List.of(new viewpoint.world.TileMeshes.Box()));
                 vpgeometryfix.fix.RoofFallback.apply(new FakeSquare.FakeSprite("roofs_01_41"), java.util.List.of(new viewpoint.world.TileMeshes.Box()));
             });
-            check(vpgeometryfix.fix.RoofFallback.seenNames().contains("roofs_04_9"));
+            check(vpgeometryfix.fix.RoofFallback.seenNames().contains("roofs_04_20"));
             String log = Files.readString(tmp.resolve("VPGeometryFix.log"));
-            contains(log, "roof seen: roofs_04_9 - no shape, replaced by fix B <- roofs_01_9");
+            contains(log, "roof seen: roofs_04_20 - no shape, replaced by fix B <- roofs_01_20");
             contains(log, "roof seen: roofs_01_40 - has 1 shape(s): Box{height=2.5}");
             contains(log, "roof seen: roofs_01_41 - has 1 shape(s): same as roofs_01_40");
             check(out.isEmpty()); // file log only, nothing on the console
@@ -310,6 +310,147 @@ public final class AllTests {
             });
             contains(out, "[VPGeometryFix] roof data: sources: own ");
             contains(out, "[VPGeometryFix] report -> ");
+        });
+
+        test("roof shapes: back-half map, mirror, slab trim, thin trim card", () -> {
+            var RS = vpgeometryfix.fix.RoofShapes.class;
+            check(RS != null);
+            Object[] b = vpgeometryfix.fix.RoofShapes.backOf("roofs_02_9");
+            eq("roofs_02_1", b[0]);
+            eq(0, b[1]);
+            eq("roofs_burnt_01_3", vpgeometryfix.fix.RoofShapes.backOf("roofs_burnt_01_11")[0]);
+            eq(1, vpgeometryfix.fix.RoofShapes.backOf("roofs_01_13")[1]);
+            eq(null, vpgeometryfix.fix.RoofShapes.backOf("roofs_30_01_9"));
+            eq(null, vpgeometryfix.fix.RoofShapes.backOf("roofs_accents_01_9"));
+            eq(null, vpgeometryfix.fix.RoofShapes.backOf("roofs_01_14"));
+            eq("8=2z,9=1z,10=0z,11=3x,12=4x,13=5x", vpgeometryfix.fix.RoofShapes.setBackMap("8=2z,9=1z,10=0z,11=3x,12=4x,13=5x"));
+            eq("roofs_01_2", vpgeometryfix.fix.RoofShapes.backOf("roofs_01_8")[0]);
+            eq("auto", vpgeometryfix.fix.RoofShapes.setBackMap("nonsense"));
+            // automatic order from picture heights: strip of 8 lowest, 10 highest -> 8=0,9=1,10=2; west 11 lowest -> 11=5
+            vpgeometryfix.fix.RoofMirrorTestAccess.setArtCentre(n -> n.endsWith("_8") ? 200f : n.endsWith("_9") ? 150f
+                    : n.endsWith("_10") ? 100f : n.endsWith("_11") ? 210f : n.endsWith("_12") ? 160f : n.endsWith("_13") ? 110f : null);
+            eq("roofs_03_0", vpgeometryfix.fix.RoofShapes.backOf("roofs_03_8")[0]);
+            eq("roofs_03_5", vpgeometryfix.fix.RoofShapes.backOf("roofs_03_11")[0]);
+            eq("roofs_03_3", vpgeometryfix.fix.RoofShapes.backOf("roofs_03_13")[0]);
+            vpgeometryfix.fix.RoofMirrorTestAccess.setArtCentre(n -> n.endsWith("_8") ? 100f : n.endsWith("_9") ? 150f
+                    : n.endsWith("_10") ? 200f : null); // reversed sheet order; west group without data -> default
+            eq("roofs_03_2", vpgeometryfix.fix.RoofShapes.backOf("roofs_03_8")[0]);
+            eq("roofs_03_0", vpgeometryfix.fix.RoofShapes.backOf("roofs_03_10")[0]);
+            eq("roofs_03_3", vpgeometryfix.fix.RoofShapes.backOf("roofs_03_11")[0]);
+            vpgeometryfix.fix.RoofMirrorTestAccess.setArtCentre(n -> null);
+            // tiles assigned to a back tile count as that tile (roofs_01_67 = roofs_01_11 in the game data)
+            vpgeometryfix.fix.RoofMirrorTestAccess.setAssignment(n -> n.equals("roofs_02_67") ? "roofs_01_11" : null);
+            eq("roofs_02_3", vpgeometryfix.fix.RoofShapes.backOf("roofs_02_67")[0]);
+            eq(null, vpgeometryfix.fix.RoofShapes.backOf("roofs_02_66"));
+            vpgeometryfix.fix.RoofMirrorTestAccess.setAssignment(n -> null);
+
+            fake.FakeBox slabX = fake.FakeBox.of(new float[] {0, 0.3982f, 0}, new float[] {39.2394f, 0, 0},
+                    new float[] {-1, 0, -1}, new float[] {1, 0.05f, 1});
+            fake.FakeBox c = (fake.FakeBox) vpgeometryfix.fix.RoofShapes.clipSlab(slabX);
+            eq(-0.5f, c.min.x);
+            eq(0.5f, c.max.x);
+            check(Math.abs(c.max.z - 0.6455f) < 0.001f && Math.abs(c.min.z + 0.6455f) < 0.001f);
+            eq(-1f, slabX.min.x); // original untouched
+            check(c.rotate != slabX.rotate); // deep copy
+            fake.FakeBox slabZ = fake.FakeBox.of(new float[] {0, 2.0312f, 0}, new float[] {0, 0, -39.4506f},
+                    new float[] {-1, 0, -1}, new float[] {1, 0.05f, 1});
+            fake.FakeBox cz = (fake.FakeBox) vpgeometryfix.fix.RoofShapes.clipSlab(slabZ);
+            eq(-0.5f, cz.min.z);
+            check(Math.abs(cz.max.x - 0.6481f) < 0.001f);
+            eq(null, vpgeometryfix.fix.RoofShapes.clipSlab(fake.FakeBox.of(new float[] {0, 0, 0}, new float[] {22.59f, 0, 0},
+                    new float[] {-0.5f, 0, -0.54f}, new float[] {0.5f, 0.065f, 0.54f})));
+
+            var m = vpgeometryfix.fix.RoofShapes.mirror(java.util.List.of(c), 0);
+            fake.FakeBox mb = (fake.FakeBox) m.get(0);
+            check(Math.abs(mb.rotate.x + 39.2394f) < 1e-4);
+            eq(0.3982f, mb.translate.y);
+            check(Math.abs(mb.min.z + 0.6455f) < 0.001f && Math.abs(mb.max.z - 0.6455f) < 0.001f);
+            var mz = vpgeometryfix.fix.RoofShapes.mirror(java.util.List.of(cz), 1);
+            check(Math.abs(((fake.FakeBox) mz.get(0)).rotate.z - 39.4506f) < 1e-4);
+            eq(null, vpgeometryfix.fix.RoofShapes.mirror(java.util.List.of(cz), 0)); // wrong axis: nothing invented
+            eq(null, vpgeometryfix.fix.RoofShapes.mirror(java.util.List.of(new viewpoint.world.TileMeshes.Box()), 0));
+
+            fake.FakeBox card = fake.FakeBox.of(new float[] {0, 0, 0}, new float[] {0, 0, 0},
+                    new float[] {-1.5f, -1, -0.5f}, new float[] {0.75f, 2.45f, -0.2f});
+            fake.FakeBox tc = (fake.FakeBox) vpgeometryfix.fix.RoofShapes.thinCard(card);
+            eq(-0.52f, tc.min.z);
+            eq(-0.48f, tc.max.z);
+            eq(-1.5f, tc.min.x);
+            fake.FakeBox west = fake.FakeBox.of(new float[] {0, 0, 0}, new float[] {0, 0, 0},
+                    new float[] {-0.5f, -1, -1.5f}, new float[] {-0.2f, 2.45f, 0.75f});
+            eq(-0.48f, ((fake.FakeBox) vpgeometryfix.fix.RoofShapes.thinCard(west)).max.x);
+            eq(null, vpgeometryfix.fix.RoofShapes.thinCard(slabX));
+        });
+
+        test("roof fix in the geometryFor advice: trim, card, back half", () -> {
+            vpgeometryfix.fix.RoofFallback.setEnabled(true);
+            vpgeometryfix.fix.RoofFallback.setParts(true, true, true);
+            var front = viewpoint.world.TileMeshes.class;
+            check(front != null);
+            // a steep slab from Viewpoint: replaced by a trimmed copy
+            java.util.List<Object> orig = new java.util.ArrayList<>();
+            orig.add(fake.FakeBox.of(new float[] {0, 0.3982f, 0}, new float[] {39.2394f, 0, 0},
+                    new float[] {-1, 0, -1}, new float[] {1, 0.05f, 1}));
+            var r = vpgeometryfix.fix.RoofFallback.apply(new FakeSquare.FakeSprite("roofs_05_0"), orig);
+            check(r != null && r.get(0) != orig.get(0));
+            eq(0.5f, ((fake.FakeBox) r.get(0)).max.x);
+            eq(1f, ((fake.FakeBox) orig.get(0)).max.x);
+            // trim card
+            java.util.List<Object> acc = new java.util.ArrayList<>();
+            acc.add(fake.FakeBox.of(new float[] {0, 0, 0}, new float[] {0, 0, 0},
+                    new float[] {-1.5f, -1, -0.5f}, new float[] {0.75f, 2.45f, -0.2f}));
+            var ra = vpgeometryfix.fix.RoofFallback.apply(new FakeSquare.FakeSprite("roofs_accents_01_4"), acc);
+            eq(-0.48f, ((fake.FakeBox) ra.get(0)).max.z);
+            // back half roofs_05_8 (empty) <- mirrored, trimmed roofs_05_0
+            var rb = vpgeometryfix.fix.RoofFallback.apply(new FakeSquare.FakeSprite("roofs_05_8"), new java.util.ArrayList<>());
+            check(rb != null && rb.size() == 1);
+            fake.FakeBox bb = (fake.FakeBox) rb.get(0);
+            check(Math.abs(bb.rotate.x + 39.2394f) < 1e-4 && bb.max.x == 0.5f);
+            // master switch off: nothing changes
+            vpgeometryfix.fix.RoofFallback.setEnabled(false);
+            eq(null, vpgeometryfix.fix.RoofFallback.apply(new FakeSquare.FakeSprite("roofs_05_0"), orig));
+            eq(null, vpgeometryfix.fix.RoofFallback.apply(new FakeSquare.FakeSprite("roofs_05_9"), new java.util.ArrayList<>()));
+            vpgeometryfix.fix.RoofFallback.setEnabled(true);
+            String log = Files.readString(tmp.resolve("VPGeometryFix.log"));
+            contains(log, "roof fix: roofs_05_0 slab trimmed to its tile");
+            contains(log, "roof fix: roofs_accents_01_4 trim card moved into the gable plane");
+            contains(log, "roof seen: roofs_05_8 - no shape, back half <- mirrored roofs_05_0");
+        });
+
+        test("roof back-half mesh: mirrored front mesh and texture swap", () -> {
+            float[] d = {-0.5f, 0f, 0.5f, 7, 8, 0.5f, 0f, 0.5f, 9, 10, 0f, 0.8f, -0.5f, 11, 12};
+            float[] m = vpgeometryfix.fix.RoofMirrorTestAccess.mirrorData(d, 3, 5, 0);
+            // winding reversed (0,2,1) and z negated, UV floats kept
+            check(java.util.Arrays.equals(m, new float[] {-0.5f, 0f, -0.5f, 7, 8, 0f, 0.8f, 0.5f, 11, 12, 0.5f, 0f, -0.5f, 9, 10}));
+            eq(null, vpgeometryfix.fix.RoofMirrorTestAccess.mirrorData(d, 2, 5, 0)); // not whole triangles
+            eq(null, vpgeometryfix.fix.RoofMirrorTestAccess.mirrorData(new float[] {50, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, 3, 5, 0));
+            float[] withNormals = {-0.5f, 0, 0.4f, 0, 0.8f, 0.6f, 0.5f, 0, 0.4f, 0, 0.8f, 0.6f, 0, 1, -0.4f, 0, 0.8f, 0.6f};
+            float[] mn = vpgeometryfix.fix.RoofMirrorTestAccess.mirrorData(withNormals, 3, 6, 0);
+            eq(-0.6f, mn[5]); // normal z mirrored too
+            eq(-0.4f, mn[2]);
+
+            float[] corner = {0, 0, 0, 7, 8, 1, 0, 0, 9, 10, 0, 0.8f, 1, 11, 12}; // corner origin (0..1): refused
+            eq(null, vpgeometryfix.fix.RoofMirrorTestAccess.mirrorData(corner, 3, 5, 0));
+
+            vpgeometryfix.fix.RoofFallback.setEnabled(true);
+            vpgeometryfix.fix.RoofMirror.setEnabled(true);
+            zombie.core.textures.Texture back = zombie.core.textures.Texture.trygetTexture("roofs_05_8");
+            // without the shape path having filled roofs_05_9, the mesh path does nothing
+            eq(null, vpgeometryfix.fix.RoofMirror.onCreate(new FakeSquare.FakeSprite("roofs_05_9"), back, null, null));
+            check(vpgeometryfix.fix.RoofFallback.isMirroredBack("roofs_05_8")); // filled in the previous test
+            Object mesh = vpgeometryfix.fix.RoofMirror.onCreate(new FakeSquare.FakeSprite("roofs_05_8"), back, null, null);
+            check(mesh instanceof viewpoint.world.TileMesh);
+            check(viewpoint.world.TileMeshes.CREATED.contains("roofs_05_0"));
+            Object[] sw = vpgeometryfix.fix.RoofMirror.swap(mesh, back.getTextureId(), new float[] {1, 2});
+            check(sw != null);
+            eq("page2", ((zombie.core.textures.TextureID) sw[0]).page);
+            check(java.util.Arrays.equals((float[]) sw[1], new float[] {3, 4})); // the front texture's map
+            eq(null, vpgeometryfix.fix.RoofMirror.swap(new Object(), back.getTextureId(), new float[] {1, 2}));
+            eq(null, vpgeometryfix.fix.RoofMirror.onCreate(new FakeSquare.FakeSprite("roofs_01_0"), back, null, null));
+            String log = Files.readString(tmp.resolve("VPGeometryFix.log"));
+            contains(log, "roof back half: roofs_05_8 <- mirrored roofs_05_0 (z, 3 verts)");
+            contains(log, "roof art: roofs_05_8 128x2 at 0,120 of 128x256");
+            check(vpgeometryfix.fix.RoofMirror.built() >= 1 && vpgeometryfix.fix.RoofMirror.swapped() >= 1);
         });
 
         System.out.println();

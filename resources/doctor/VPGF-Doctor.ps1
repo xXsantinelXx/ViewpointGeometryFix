@@ -12,7 +12,7 @@ param(
 )
 
 $ErrorActionPreference = 'Continue'
-$Version = '0.3.7'
+$Version = '0.3.8'
 $ModId = 'ViewpointGeometryFix'
 $Pins = @{
     'e1a69eb743ede60b213a0fe7f8b83d4fcab773036d256cc4543a336f3b058a33' = 'projectzomboid.jar 42.21.0'
@@ -511,6 +511,7 @@ if (Test-Path -LiteralPath $cfg) {
 } else { Line 'config.properties: keine (Standardwerte, Dach-Fix B an)' }
 $ownLog = [IO.Path]::Combine($ownDir, 'VPGeometryFix.log')
 $roofLines = @()
+$script:ownLogLoaded = $false
 if (-not (Test-Path -LiteralPath $ownLog)) {
     Line "Nicht vorhanden: $ownLog"
 } else {
@@ -523,6 +524,7 @@ if (-not (Test-Path -LiteralPath $ownLog)) {
     if ($logAll.Count -gt 0) { $session = @($logAll[$start..($logAll.Count - 1)]) }
     Line ("Datei: $ownLog, letzter Start ab Zeile {0}, geaendert {1}" -f ($start + 1), (Get-Item -LiteralPath $ownLog).LastWriteTime)
     $roofLines = @($session | Where-Object { $_ -match 'roof|Java component loaded' })
+    $script:ownLogLoaded = @($session | Where-Object { $_ -like '*Java component loaded*' }).Count -gt 0
     Add-Block 'Dach-Zeilen' $roofLines 700 $false 800
     $stats = @($session | Where-Object { $_ -like '*roof fix B stats*' })
     $seenEmpty = @($session | Where-Object { $_ -like '*roof seen:*no shape*' })
@@ -620,13 +622,21 @@ if (-not (Test-Path -LiteralPath $console)) {
     Add-Block 'ZombieBuddy' $zb 60 $false
     Add-Block 'Viewpoint (ohne Leistungsmeldungen)' $vp 40 $false
 
-    if (-not $luaLoaded -and -not $startBlock) {
+    # console.txt without any startup line (no "[ZB]" loader lines, no "f:0>" frames) was cut/rotated while the
+    # game ran; then our own log (section 5b) is the better evidence.
+    $consoleCut = ($zb.Count -eq 0) -and -not ($text -match 'f:0>')
+    if ($consoleCut) {
+        Line 'Hinweis: console.txt beginnt mitten im Spiel (keine Startzeilen) - der Ladezustand steht in Abschnitt 5b (VPGeometryFix.log).'
+    }
+    if ($consoleCut -and $script:ownLogLoaded) {
+        # loaded according to VPGeometryFix.log: no finding
+    } elseif (-not $luaLoaded -and -not $startBlock) {
         Finding 'console.txt enthaelt keine Zeile dieser Mod: das Spiel hat sie NICHT geladen. Im Hauptmenue unter Mods aktivieren (B42: auch in der Mod-Auswahl des Spielstands) und Ordner pruefen (Abschnitt 5).'
     } elseif (-not $javaLoaded) {
         Finding 'Der Lua-Teil der Mod laeuft, der Java-Teil nicht. ZombieBuddy muss das JAR von ViewpointGeometryFix freigeben (Abfrage beim Spielstart, siehe Block ZombieBuddy).'
     }
     if ($ourErrors.Count -gt 0) { Finding ('Die Mod meldet ' + $ourErrors.Count + ' Fehler - siehe Block "Zeilen dieser Mod".') }
-    if (-not $zbActive) { Finding 'Weder ZombieBuddy- noch Viewpoint-Java-Zeilen in console.txt: ZombieBuddy laeuft nicht. ZombieBuddy-Installer erneut ausfuehren.' }
+    if (-not $zbActive -and -not $consoleCut) { Finding 'Weder ZombieBuddy- noch Viewpoint-Java-Zeilen in console.txt: ZombieBuddy laeuft nicht. ZombieBuddy-Installer erneut ausfuehren.' }
 }
 
 Section 'ERGEBNIS'

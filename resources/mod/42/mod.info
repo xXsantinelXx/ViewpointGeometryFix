@@ -1,9 +1,9 @@
 name=Viewpoint Geometry Fix (Diagnostics)
 id=ViewpointGeometryFix
 author=ViewpointGeometryFix contributors
-modversion=0.2.3-test
+modversion=0.3.0-test
 require=\ZombieBuddy
 javaJarFile=media/java/client/ViewpointGeometryFix.jar
 javaPkgName=vpgeometryfix
 ZBVersionMin=2.3.2
-description=TEST BUILD with an experimental roof fix (switchable in the in-game window): roof tiles without a 3D shape in the game data borrow the shape of the same tile from the sibling tileset (roofs_02-05 from roofs_01, roofs_30_02-10 from roofs_30_01). Also a diagnostic companion for Project Viewpoint. Detects Viewpoint, ZombieBuddy and the game version, logs [VPGeometryFix] lines and, in debug mode, dumps read-only information about the tile/object you target. Does NOT change rendering, gameplay, save games or any game/Viewpoint file. Controlled through an in-game window (opens when a save loads) and the world right-click menu "VPGeometryFix"; no default hotkeys.
+description=TEST BUILD with a switchable roof fix for Project Viewpoint (in-game window button "Dach-Fix"): adds the missing back halves of steep roofs (mirrored front half with its texture), trims oversized roof slabs to their tile, puts gable trims into the gable plane, and gives roof tiles without a 3D shape the shape of the sibling tileset. Changes only Viewpoint's first-person meshes at runtime - no game/Viewpoint files, saves or gameplay. Also a diagnostic companion: detects Viewpoint, ZombieBuddy and the game version, logs [VPGeometryFix] lines and writes roof data reports. In-game window and world right-click menu "VPGeometryFix"; no default hotkeys.

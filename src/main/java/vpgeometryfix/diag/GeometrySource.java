@@ -122,6 +122,29 @@ public final class GeometrySource {
         return out;
     }
 
+    /**
+     * The game's depth-texture assignment of a tile ("roofs_01_67" -> "roofs_01_11"
+     * [V1 data]), first hit over the geometry mod ids, or null. Reflective,
+     * names from the game's TileGeometryEditor.lua [V1], packages [H].
+     */
+    public static String assignedTile(String name) {
+        try {
+            Object am = instance(ASSIGNMENT_MANAGER);
+            if (am == null || name == null) return null;
+            Method assigned = method(am.getClass(), "getAssignedTileName", String.class, String.class);
+            if (assigned == null) return null;
+            List<String> mods = modIds(instance(GEOMETRY_MANAGER));
+            if (mods.isEmpty()) mods.add("game");
+            for (String mod : mods) {
+                Object a = invoke(am, assigned, mod, name);
+                if (a != null && !a.toString().isEmpty() && !a.toString().equals(name)) return a.toString();
+            }
+        } catch (Throwable ignored) {
+            // unknown member: no assignment
+        }
+        return null;
+    }
+
     static Object instance(String[] candidates) {
         for (String c : candidates) {
             Class<?> k = Reflect.find(c);

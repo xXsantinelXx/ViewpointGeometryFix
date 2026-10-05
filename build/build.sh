@@ -21,7 +21,7 @@ javac --release 17 -nowarn -d "$OUT/stubs" $(find "$ROOT/src/stubs/java" -name '
 echo "[build] compile mod sources"
 javac --release 17 -Xlint:all -Werror -cp "$OUT/stubs" -d "$OUT/classes" $(find "$ROOT/src/main/java" -name '*.java')
 
-if find "$OUT/classes" -path '*se/krka*' -o -path '*me/zed_0xff*' | grep -q .; then
+if find "$OUT/classes" -path '*se/krka*' -o -path '*me/zed_0xff*' -o -path '*classes/viewpoint*' -o -path '*classes/zombie*' | grep -q .; then
   echo "[build] ERROR: stub classes leaked into the mod classes" >&2; exit 1
 fi
 
