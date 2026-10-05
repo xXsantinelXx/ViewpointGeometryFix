@@ -51,6 +51,17 @@ public final class AllTests {
             eq(null, ModInfo.findAbove(jar, 2));
         });
 
+        test("ModInfo.findAbove with mod.info only in common/", () -> {
+            Path root = tmp.resolve("VP2");
+            Path jarDir = root.resolve("42/media/java/client");
+            Files.createDirectories(jarDir);
+            Files.createDirectories(root.resolve("common"));
+            Files.writeString(root.resolve("common/mod.info"), "id=Viewpoint\nmodversion=0.1.5a-hotfix\n");
+            Path jar = jarDir.resolve("Viewpoint.jar");
+            Files.writeString(jar, "x");
+            eq("Viewpoint", ModInfo.findAbove(jar, 6).get("id"));
+        });
+
         test("KnownBinaries", () -> {
             eq("Viewpoint 0.1.5a-hotfix", KnownBinaries.identify("94fedda302ab6c17ba1b38495789e4c9781d52823fb8204214c85402e3cab41f"));
             eq("not an audited build", KnownBinaries.identify("00"));

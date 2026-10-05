@@ -44,7 +44,8 @@ public final class ModInfo {
 
     /**
      * Walks up from a JAR (e.g. {@code <mod>/42/media/java/client/X.jar}) to the
-     * nearest directory containing {@code mod.info}; at most {@code maxLevels}.
+     * nearest directory containing {@code mod.info} (or {@code common/mod.info},
+     * as Viewpoint 0.1.5a-hotfix ships it); at most {@code maxLevels}.
      */
     public static ModInfo findAbove(Path jar, int maxLevels) {
         if (jar == null) return null;
@@ -52,6 +53,9 @@ public final class ModInfo {
         for (int i = 0; i < maxLevels && dir != null; i++, dir = dir.getParent()) {
             Path candidate = dir.resolve("mod.info");
             if (Files.isRegularFile(candidate)) return read(candidate);
+            // B42 layout: <mod>/<version>/media/... with mod.info possibly only in <mod>/common
+            Path common = dir.resolve("common").resolve("mod.info");
+            if (Files.isRegularFile(common)) return read(common);
         }
         return null;
     }

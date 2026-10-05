@@ -12,7 +12,7 @@ param(
 )
 
 $ErrorActionPreference = 'Continue'
-$Version = '0.2.1'
+$Version = '0.3.0'
 $ModId = 'ViewpointGeometryFix'
 $Pins = @{
     'e1a69eb743ede60b213a0fe7f8b83d4fcab773036d256cc4543a336f3b058a33' = 'projectzomboid.jar 42.21.0'
@@ -99,6 +99,91 @@ function Get-Jars([string]$dir) {
     return @(Get-ChildItem -LiteralPath $dir -Recurse -Depth 8 -Filter '*.jar' -File -ErrorAction SilentlyContinue | Sort-Object FullName)
 }
 
+# ---------------------------------------------------------------- class files
+# Minimal reader for the public JVM class-file format (JVMS chapter 4): class,
+# super class, field and method names with their types. No bytecode, no
+# decompilation - only the signatures needed to find hook points.
+$GeometryRx = '^viewpoint\.(world|visibility)\.|(?i)(mesh|shell|facade|recipe|roof|wall|tile|edge|cook|gather|slope)'
+
+function U1 { $v = [int]$script:cb[$script:cp]; $script:cp += 1; return $v }
+function U2 { $v = ([int]$script:cb[$script:cp] -shl 8) -bor [int]$script:cb[$script:cp + 1]; $script:cp += 2; return $v }
+function Skip([int]$n) { $script:cp += $n }
+
+function Type-Name([string]$d, [ref]$i) {
+    $dims = ''
+    while ($d[$i.Value] -eq '[') { $dims += '[]'; $i.Value++ }
+    $c = $d[$i.Value]; $i.Value++
+    switch ($c) {
+        'B' { return 'byte' + $dims } 'C' { return 'char' + $dims } 'D' { return 'double' + $dims }
+        'F' { return 'float' + $dims } 'I' { return 'int' + $dims } 'J' { return 'long' + $dims }
+        'S' { return 'short' + $dims } 'Z' { return 'boolean' + $dims } 'V' { return 'void' }
+        'L' {
+            $end = $d.IndexOf(';', $i.Value)
+            $n = $d.Substring($i.Value, $end - $i.Value).Replace('/', '.')
+            $i.Value = $end + 1
+            $n = $n -replace '^java\.lang\.', ''
+            return $n + $dims
+        }
+    }
+    return '?'
+}
+
+function Format-Member([string]$name, [string]$desc, [bool]$isStatic) {
+    $pre = ''
+    if ($isStatic) { $pre = 'static ' }
+    if ($desc.StartsWith('(')) {
+        $i = 1; $params = @()
+        while ($desc[$i] -ne ')') { $params += Type-Name $desc ([ref]$i) }
+        $i++
+        $ret = Type-Name $desc ([ref]$i)
+        return ('  M {0}{1} {2}({3})' -f $pre, $ret, $name, ($params -join ', '))
+    }
+    $j = 0
+    return ('  F {0}{1} {2}' -f $pre, (Type-Name $desc ([ref]$j)), $name)
+}
+
+function Read-ClassFile([byte[]]$bytes) {
+    $script:cb = $bytes; $script:cp = 8
+    $count = U2
+    $utf = @{}; $cls = @{}
+    for ($k = 1; $k -lt $count; $k++) {
+        $tag = U1
+        switch ($tag) {
+            1 { $len = U2; $utf[$k] = [Text.Encoding]::UTF8.GetString($script:cb, $script:cp, $len); Skip $len }
+            7 { $cls[$k] = U2 }
+            { $_ -in 3, 4 } { Skip 4 }
+            { $_ -in 5, 6 } { Skip 8; $k++ }
+            { $_ -in 8, 16, 19, 20 } { Skip 2 }
+            { $_ -in 9, 10, 11, 12, 17, 18 } { Skip 4 }
+            15 { Skip 3 }
+            default { throw "unknown constant pool tag $tag" }
+        }
+    }
+    Skip 2
+    $thisName = $utf[$cls[(U2)]].Replace('/', '.')
+    $superIdx = U2
+    $super = ''
+    if ($superIdx -ne 0) { $super = $utf[$cls[$superIdx]].Replace('/', '.') }
+    $ifaces = U2; Skip (2 * $ifaces)
+    $lines = New-Object System.Collections.Generic.List[string]
+    $lines.Add("$thisName extends $super")
+    foreach ($kind in 'F', 'M') {
+        $n = U2
+        for ($m = 0; $m -lt $n; $m++) {
+            $acc = U2; $name = $utf[(U2)]; $desc = $utf[(U2)]
+            $attrs = U2
+            for ($a = 0; $a -lt $attrs; $a++) {
+                Skip 2
+                $alen = ([long](U2) -shl 16) -bor (U2)
+                Skip $alen
+            }
+            if (($acc -band 0x1000) -ne 0) { continue }  # synthetic (lambdas, bridges)
+            $lines.Add((Format-Member $name $desc (($acc -band 0x0008) -ne 0)))
+        }
+    }
+    return $lines
+}
+
 # ---------------------------------------------------------------- setup
 if (-not $Zomboid) { $Zomboid = [IO.Path]::Combine($env:USERPROFILE, 'Zomboid') }
 if (-not $Out) { $Out = [IO.Path]::Combine((Get-Location).Path, 'VPGF-Report.txt') }
@@ -106,7 +191,7 @@ if ($SteamLib.Count -gt 0) { $script:Libs = $SteamLib } else { $script:Libs = Ge
 $workshop = Get-WorkshopMods
 
 Line ("VPGF Doctor $Version - " + (Get-Date -Format 'yyyy-MM-dd HH:mm:ss'))
-Line 'Nur lesend. Diesen Bericht an den Entwickler schicken (ohne VPGF-Viewpoint-Classes.txt).'
+Line 'Nur lesend. Diesen Bericht und VPGF-Viewpoint-Geometry.txt an den Entwickler schicken (beide nicht oeffentlich posten).'
 
 Section '1 Pfade'
 $zState = ''
@@ -190,7 +275,29 @@ foreach ($m in $workshop) {
             $zip = [System.IO.Compression.ZipFile]::OpenRead($jar.FullName)
             $names = @($zip.Entries | Where-Object { $_.FullName.EndsWith('.class') } |
                 ForEach-Object { $_.FullName.Substring(0, $_.FullName.Length - 6).Replace('/', '.') } | Sort-Object)
+            # Signatures of geometry/visibility classes (named inner classes included, lambdas/anonymous excluded)
+            $geo = New-Object System.Collections.Generic.List[string]
+            $geo.Add('# Viewpoint-Geometrie-Klassen: Signaturen aus ' + $jar.FullName)
+            $geo.Add('# Nur zur Analyse - nicht veroeffentlichen.')
+            $geoCount = 0
+            foreach ($e in ($zip.Entries | Sort-Object FullName)) {
+                if (-not $e.FullName.EndsWith('.class')) { continue }
+                $cn = $e.FullName.Substring(0, $e.FullName.Length - 6).Replace('/', '.')
+                if ($cn -notmatch $GeometryRx -or $cn -match '\$\d') { continue }
+                try {
+                    $st = $e.Open(); $ms = New-Object System.IO.MemoryStream
+                    $st.CopyTo($ms); $st.Dispose()
+                    $geo.Add('')
+                    foreach ($gl in (Read-ClassFile $ms.ToArray())) { $geo.Add($gl) }
+                    $geoCount++
+                } catch {
+                    $geo.Add("$cn : nicht lesbar (" + $_.Exception.Message + ')')
+                }
+            }
             $zip.Dispose()
+            $geoOut = [IO.Path]::Combine((Split-Path -Parent ([IO.Path]::GetFullPath($Out))), 'VPGF-Viewpoint-Geometry.txt')
+            $geo | Set-Content -LiteralPath $geoOut -Encoding UTF8
+            Line ("    Signaturen von $geoCount Geometrie-/Sichtbarkeits-Klassen: $geoOut")
             $hits = @($names | Where-Object { $n = $_.ToLower(); @($Keywords | Where-Object { $n.Contains($_) }).Count -gt 0 })
             Line ("    Klassen gesamt: {0}, davon mit Geometrie-/Render-Stichwort: {1}" -f $names.Count, $hits.Count)
             $hits | Where-Object { $_ -notmatch '\$' } | ForEach-Object { Line "      $_" }

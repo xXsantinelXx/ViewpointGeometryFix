@@ -39,8 +39,10 @@ Eigenständiges Prüfprogramm, läuft **außerhalb** des Spiels, nur lesend:
    `-javaagent` eingetragen ist), Viewpoint-Version und -Klassen, ob diese Mod
    am richtigen Ort liegt, die relevanten Zeilen aus `console.txt` und unter
    **ERGEBNIS** die gefundenen Probleme.
-4. Diesen Bericht weitergeben. Die zweite Datei `VPGF-Viewpoint-Classes.txt`
-   (alle Viewpoint-Klassennamen) bleibt lokal.
+4. Diesen Bericht und `VPGF-Viewpoint-Geometry.txt` (Methoden-/Feldnamen der
+   Viewpoint-Geometrie- und Sichtbarkeitsklassen, ab Doctor 0.3.0) an den
+   Entwickler schicken – nicht öffentlich posten. `VPGF-Viewpoint-Classes.txt`
+   (alle Klassennamen) bleibt lokal.
 
 ## Voraussetzungen
 

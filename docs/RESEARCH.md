@@ -131,6 +131,33 @@ Near/Far 0.05/400 [V2].
 | Fern-Geometrie | `render.FarPass` (Shell-/Cell-Uploads, Tree-Baking, Frustum/Masken) | [V2] |
 | Chunk-Culling | `world.ChunkWalk.inView` | [V2] |
 
+### Update 2026-10-05: Klassen aus dem installierten Viewpoint-JAR [V1]
+
+Der VPGF Doctor hat beim Nutzer das JAR mit SHA-256 `94fedda3…` (= auditierter
+Build 0.1.5a-hotfix) gelesen: 654 Klassen, Paket `viewpoint`, geladen über
+ZombieBuddy 2.3.4 als Java-Mod mit eigenen `viewpoint.Patch_*`-Klassen
+(u. a. `Patch_GameRender`, `Patch_ZombieCull`, `Patch_CullAnimals`,
+`Patch_Pick*`). Viewpoint meldet selbst „compat: all 61 patch targets and 61
+private members found“. **Existenz** der folgenden Klassen ist damit [V1];
+ihre **Rolle** ergibt sich bisher nur aus dem Namen und bleibt [H], bis die
+Signaturen (`VPGF-Viewpoint-Geometry.txt`, Doctor ≥ 0.3.0) vorliegen.
+
+| Bereich | Klassen (Existenz [V1], Rolle [H]) |
+|---|---|
+| Nahwelt-Meshing (Kandidaten für Dach, Dachkante, Wand) | `world.WorldMesher`, `world.WallMesher`, `world.TileMesh`, `world.TileMeshes`, `world.MeshBuilder`, `world.MeshRecorder`, `world.Recipe`, `world.RecipeCodec`, `world.Cook`, `world.EarClip`, `world.Facades`, `world.FacadeColours` |
+| Chunk-Verwaltung | `world.ChunkBuilds`, `world.ChunkCache`, `world.ChunkBudget`, `world.ChunkWalk`, `world.DrawList`, `world.MutationInbox` |
+| Böden | `world.FloorGather`, `world.FloorSpans`, `world.FloorPages`, `world.FloorDecals`, `render.FloorBaker`, `render.FloorBakes`, `render.FloorLayers` |
+| Modellpakete (Sprite → 3D-Modell, z. B. PZVoxelStudio) | `world.PackGather`, `packs.ModelPacks`, `render.PackModels`, `render.PackDraws`, `render.PackArena` |
+| Sichtbarkeit | `visibility.Rooms`, `visibility.Portals`, `visibility.Apertures`, `visibility.Edges`, `visibility.Topology`, `visibility.SectorGraph`, `visibility.GraphBuilder`, `visibility.Selection`, `visibility.DrawPlans`, `visibility.Capture`, `visibility.Owner`, `visibility.Glass`, `visibility.Fragment` |
+| Fernwelt (Gebäudehüllen inkl. Dächer in der Ferne) | `far.ShellMesher`, `far.ShellBlock`, `far.FarShell`, `far.FarMesher`, `far.FarTiles`, `far.ShellInteriors` |
+| GPU-Seite | `render.Meshes`, `render.ChunkMeshData`, `render.MeshArena`, `render.ShellArena`, `render.SurfacePass` |
+
+Die Fehlerbilder aus `docs/OBSERVATIONS.md` (Dachfläche zu hoch, Giebelkanten
+ragen heraus, Dach fehlt, gestufte Vordächer) treten in der Nahwelt auf; erste
+Kandidaten sind daher `world.WorldMesher`/`WallMesher`/`TileMesh(es)`/`Recipe`
+[H]. Ob ein Modellpaket (PZVoxelStudio, Viewpoint2Dto3D) die Dach-Sprites
+ersetzt, ist zu prüfen [U].
+
 Die Klassen, die aus einzelnen `IsoObject`/Sprite-Typen Dreiecke erzeugen
 („Mesh-Builder“ für Dach/Wand/Kante), sind in keiner öffentlichen Quelle
 benannt. Das Diagnose-Werkzeug erzeugt dafür lokal ein Inventar
