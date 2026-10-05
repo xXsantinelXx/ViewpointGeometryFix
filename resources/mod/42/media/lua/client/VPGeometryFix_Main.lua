@@ -21,7 +21,7 @@
 ]]
 
 VPGF = VPGF or {}
-VPGF.VERSION = "0.2.1-test"
+VPGF.VERSION = "0.2.2-test"
 VPGF.PREFIX = "[VPGeometryFix] "
 -- First line in console.txt: proves the Lua file was loaded at all.
 print(VPGF.PREFIX .. "Lua loaded " .. VPGF.VERSION)

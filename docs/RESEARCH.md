@@ -245,6 +245,19 @@ bauen. Die Tilesets `roofs_02…05` bzw. `roofs_30_02…10` sind sehr
 wahrscheinlich Farbvarianten mit demselben Blattaufbau wie `roofs_01` bzw.
 `roofs_30_01` [H] – deren Formen ließen sich übertragen.
 
+**Widerlegt (0.2.1-test, VPGeometryFix.log des Nutzers) [V1]:** Im Spiel liefert
+`TileMeshes.geometryFor` für **463 von 481** angefragten Dach-Sprites eine Form,
+auch für `roofs_03_*`, `roofs_05_116…119`, `roofs_30_02_*`, `roofs_30_06_*`,
+`roofs_30_08_0` und `roofs_accents_30_01_*`, die in `tileGeometry.txt` keine
+Form haben. Leer waren nur `roofs_02_112…119`; Dach-Fix B hat genau diese
+8 Sprites aus `roofs_01` ergänzt – daher kein sichtbarer Unterschied.
+Woher die übrigen Formen kommen, ist unbekannt [U]; Kandidaten:
+`TileMeshes.lookup(String,int)` mit eigener Zuordnung, die Spiel-Zuordnung
+`tileDepthTextureAssignments.txt` (`getAssignedTileName`) [H].
+Folgerung [H]: Die Dachfehler kommen nicht von *fehlenden*, sondern von
+*vorhandenen, aber unpassenden* Formen (oder von Anhebung/Position). 0.2.2-test
+protokolliert deshalb die Formwerte je Dach-Sprite.
+
 Außerdem existiert `viewpoint.render.MousePick$Hit` [V1] – vermutlich das
 Ergebnis von Viewpoints Fadenkreuz-Pick; Kandidat, um später das anvisierte
 Tile direkt zu inspizieren.

@@ -1,4 +1,4 @@
-# Diagnose-Handbuch (0.2.1-test)
+# Diagnose-Handbuch (0.2.2-test)
 
 ## Zuerst: VPGF Doctor (außerhalb des Spiels)
 
@@ -11,15 +11,15 @@ Viewpoint-JAR (ZIP-Verzeichnis, kein Dekompilieren).
 
 ## Ist die Mod aktiv?
 
-1. **Hauptmenü:** oben links steht gelb „VPGeometryFix 0.2.1-test geladen – Java-Teil: OK“
+1. **Hauptmenü:** oben links steht gelb „VPGeometryFix 0.2.2-test geladen – Java-Teil: OK“
    (oder „NICHT geladen“, dann lädt ZombieBuddy das JAR nicht).
-2. **console.txt:** erste Zeile der Mod ist `[VPGeometryFix] Lua loaded 0.2.1-test`.
+2. **console.txt:** erste Zeile der Mod ist `[VPGeometryFix] Lua loaded 0.2.2-test`.
    Fehlt sie, wird die Mod gar nicht geladen (Ordnerstruktur / Mod nicht aktiviert).
    Fehler der Mod erscheinen als `[VPGeometryFix] ERROR in …`.
 3. **Im Spielstand:** das Fenster (unten).
 
 Beim Laden eines Spielstands öffnet sich oben links das Fenster
-**„Viewpoint Geometry Fix 0.2.1-test“** (verschiebbar, mit X schließbar).
+**„Viewpoint Geometry Fix 0.2.2-test“** (verschiebbar, mit X schließbar).
 Es zeigt:
 
 ```
@@ -84,7 +84,7 @@ Kurzfilter (PowerShell):
 Select-String -Path "$env:USERPROFILE\Zomboid\console.txt" -Pattern '\[VPGeometryFix\]'
 ```
 
-## Dach-Fix testen (0.2.1-test)
+## Dach-Fix testen (0.2.2-test)
 
 1. Spiel starten, Spielstand laden, mit Viewpoint an Häusern vorbeigehen. Fenster:
    ```
@@ -97,7 +97,9 @@ Select-String -Path "$env:USERPROFILE\Zomboid\console.txt" -Pattern '\[VPGeometr
    ZombieBuddy hat den Patch nicht angewendet.
    Ab 0.2.1 schreibt die Mod in `VPGeometryFix.log` je Dach-Sprite eine Zeile
    `roof seen: <sprite> - <was Viewpoint dafür hat>` (höchstens 60) und
-   Zählerzeilen `roof fix B stats: …`. VPGF Doctor 0.3.4 zeigt beides in Abschnitt 5b.
+   Zählerzeilen `roof fix B stats: …`. Ab 0.2.2 enthält die Zeile bei Dächern mit
+   Form auch deren Werte (`Box{translate=… rotate=… min=… max=…}`, höchstens 80
+   Sprites). VPGF Doctor 0.3.5 zeigt beides in Abschnitt 5b.
 2. Vorher/Nachher vergleichen: Schalter „Dach-Fix AUS“ + Spiel neu starten, dieselbe
    Stelle ansehen; dann wieder AN.
 3. Variante A getrennt testen: B ausschalten, `VPGF-RoofData.bat` ausführen,

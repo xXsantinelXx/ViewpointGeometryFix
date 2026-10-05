@@ -44,7 +44,7 @@ public final class RoofFallback {
     private static final AtomicLong ROOF_SHAPED = new AtomicLong();
     private static final Map<String, Boolean> LOGGED = new ConcurrentHashMap<>();
     private static final Map<String, Boolean> SEEN = new ConcurrentHashMap<>();
-    private static final int SEEN_MAX = 60;
+    private static final int SEEN_MAX = 80;
     private static volatile Method geometryFor;
     private static volatile Object spriteManager;
     private static volatile Method getSprite;
@@ -108,7 +108,9 @@ public final class RoofFallback {
             if (name == null || !name.startsWith("roofs_")) return null;
             if (!empty) {
                 ROOF_SHAPED.incrementAndGet();
-                seen(name, "has " + original.size() + " shape(s)");
+                if (SEEN.size() < SEEN_MAX && !SEEN.containsKey(name)) {
+                    seen(name, "has " + original.size() + " shape(s): " + describe(original));
+                }
                 return null;
             }
             ROOF_EMPTY.incrementAndGet();
@@ -153,6 +155,52 @@ public final class RoofFallback {
         if (SEEN.size() < SEEN_MAX && SEEN.putIfAbsent(name, Boolean.TRUE) == null) {
             Log.fileOnly("roof seen: " + name + " - " + what);
         }
+    }
+
+    /**
+     * Compact, read-only text of shapes, e.g. "Box{translate=(..) rotate=(..) min=(..) max=(..)}".
+     * Instance fields of the shape class and its superclasses [field names: U, read reflectively].
+     */
+    public static String describe(List<?> shapes) {
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < shapes.size() && i < 4; i++) {
+            Object g = shapes.get(i);
+            if (i > 0) sb.append("; ");
+            if (g == null) {
+                sb.append("null");
+                continue;
+            }
+            sb.append(g.getClass().getSimpleName()).append('{');
+            boolean first = true;
+            for (Class<?> c = g.getClass(); c != null && c != Object.class; c = c.getSuperclass()) {
+                for (java.lang.reflect.Field f : c.getDeclaredFields()) {
+                    if (Modifier.isStatic(f.getModifiers()) || f.isSynthetic()) continue;
+                    String v;
+                    try {
+                        f.setAccessible(true);
+                        v = value(f.get(g));
+                    } catch (Throwable t) {
+                        v = "?";
+                    }
+                    if (!first) sb.append(' ');
+                    first = false;
+                    sb.append(f.getName()).append('=').append(v);
+                }
+            }
+            sb.append('}');
+        }
+        if (shapes.size() > 4) sb.append("; +").append(shapes.size() - 4).append(" more");
+        return sb.length() > 700 ? sb.substring(0, 700) + " ..." : sb.toString();
+    }
+
+    private static String value(Object v) {
+        if (v == null) return "null";
+        if (v instanceof float[] a) return java.util.Arrays.toString(a);
+        if (v instanceof int[] a) return java.util.Arrays.toString(a);
+        if (v instanceof Object[] a) return "Object[" + a.length + "]";
+        if (v instanceof java.util.Collection<?> c) return c.size() <= 12 ? c.toString() : c.getClass().getSimpleName() + "[" + c.size() + "]";
+        String s = v.toString().replaceAll("\\s+", " ");
+        return s.length() > 120 ? s.substring(0, 120) + ".." : s;
     }
 
     /** File-log counter line; logged at a few call counts only, never per frame. */

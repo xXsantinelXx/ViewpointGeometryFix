@@ -12,7 +12,7 @@ param(
 )
 
 $ErrorActionPreference = 'Continue'
-$Version = '0.3.4'
+$Version = '0.3.5'
 $ModId = 'ViewpointGeometryFix'
 $Pins = @{
     'e1a69eb743ede60b213a0fe7f8b83d4fcab773036d256cc4543a336f3b058a33' = 'projectzomboid.jar 42.21.0'
@@ -444,7 +444,7 @@ foreach ($p in $infos) {
 if ($infos.Count -gt 1) { Finding "Mod mehrfach installiert - alle Kopien ausser $expected loeschen." }
 
 # ---------------------------------------------------------------- own log
-function Add-Block([string]$title, $items, [int]$max, [bool]$fromEnd) {
+function Add-Block([string]$title, $items, [int]$max, [bool]$fromEnd, [int]$width = 400) {
     Line ''
     Line ("--- $title (" + @($items).Count + ')')
     $arr = @($items)
@@ -453,7 +453,7 @@ function Add-Block([string]$title, $items, [int]$max, [bool]$fromEnd) {
         else { $arr = $arr[0..($max - 1)] }
     }
     foreach ($s in $arr) {
-        if ($s.Length -gt 400) { $s = $s.Substring(0, 400) + ' ...' }
+        if ($s.Length -gt $width) { $s = $s.Substring(0, $width) + ' ...' }
         Line $s
     }
 }
@@ -478,7 +478,7 @@ if (-not (Test-Path -LiteralPath $ownLog)) {
     if ($logAll.Count -gt 0) { $session = @($logAll[$start..($logAll.Count - 1)]) }
     Line ("Datei: $ownLog, letzter Start ab Zeile {0}, geaendert {1}" -f ($start + 1), (Get-Item -LiteralPath $ownLog).LastWriteTime)
     $roofLines = @($session | Where-Object { $_ -match 'roof|Java component loaded' })
-    Add-Block 'Dach-Zeilen' $roofLines 120 $false
+    Add-Block 'Dach-Zeilen' $roofLines 160 $false 800
     $stats = @($session | Where-Object { $_ -like '*roof fix B stats*' })
     $seenEmpty = @($session | Where-Object { $_ -like '*roof seen:*no shape*' })
     if ($stats.Count -eq 0) {

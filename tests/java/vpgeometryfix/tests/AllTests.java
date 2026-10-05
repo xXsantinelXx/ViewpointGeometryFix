@@ -228,6 +228,8 @@ public final class AllTests {
             vpgeometryfix.fix.RoofFallback.apply(new FakeSquare.FakeSprite("walls_01_0"), new java.util.ArrayList<>());
             eq(empty + 1, vpgeometryfix.fix.RoofFallback.roofEmpty());
             eq(shaped + 1, vpgeometryfix.fix.RoofFallback.roofShaped());
+            eq("Box{height=2.5}; Polygon{points=[0.0, 0.0, 1.0, 1.0]}", vpgeometryfix.fix.RoofFallback.describe(java.util.List.of(
+                    new viewpoint.world.TileMeshes.Box(), new viewpoint.world.TileMeshes.Polygon(new float[] {0, 0, 1, 1}))));
             check(rf != null);
         });
 
