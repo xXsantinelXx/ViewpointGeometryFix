@@ -1,0 +1,14 @@
+# Per-machine build configuration. Copy to build/build.local (git-ignored)
+# and edit. build.sh sources it before building.
+
+# Project Zomboid install directory; must contain projectzomboid.jar and,
+# after ZombieBuddy's setup, ZombieBuddy.jar.
+PZ_DIR="C:/Program Files (x86)/Steam/steamapps/common/ProjectZomboid"
+# PZ_DIR="D:/SteamLibrary/steamapps/common/ProjectZomboid"
+
+# JDK used for compiling. Project Zomboid B42 ships Java 25; any JDK 17 or
+# newer works, because the classes are compiled with --release 17.
+# JAVA_HOME="C:/Program Files/Zulu/zulu25"
+
+# Where to install the built mod for testing. Default:
+# MOD_INSTALL_ROOT="$USERPROFILE/Zomboid/mods/VPGeometryFix"

@@ -1,0 +1,11 @@
+name=Viewpoint Geometry Fix
+id=VPGeometryFix
+description=Diagnosis build: detects Viewpoint, logs the environment and reports tile/object data for broken geometry. Changes no rendering.
+author=xXsantinelXx
+url=https://github.com/xXsantinelXx/ViewpointGeometryFix
+modversion=0.1.0
+versionMin=42.21.0
+require=\ZombieBuddy
+javaJarFile=media/java/client/vpgeometryfix.jar
+javaPkgName=pzmod.vpgeometryfix
+ZBVersionMin=2.3.2
