@@ -21,8 +21,10 @@
 ]]
 
 VPGF = VPGF or {}
-VPGF.VERSION = "0.1.2-diag"
+VPGF.VERSION = "0.1.3-diag"
 VPGF.PREFIX = "[VPGeometryFix] "
+-- First line in console.txt: proves the Lua file was loaded at all.
+print(VPGF.PREFIX .. "Lua loaded " .. VPGF.VERSION)
 
 VPGF.facingDistance = VPGF.facingDistance or 1   -- tiles ahead of the player
 VPGF.columnBelow = VPGF.columnBelow or 1         -- inspect z-1 .. z+columnAbove
@@ -391,7 +393,11 @@ local function drawOverlay()
 end
 
 function VPGF.showPanel()
-    if panel == nil then panel = try(createPanel) or false end
+    if panel == nil then
+        local ok, res = pcall(createPanel)
+        if not ok then log("panel unavailable, using text overlay: " .. tostring(res)) end
+        panel = (ok and res) or false
+    end
     if panel then
         try(function() panel:addToUIManager() panel:setVisible(true) end)
     elseif not overlayOn and Events.OnPostUIDraw then
@@ -462,9 +468,54 @@ local function onGameStart()
     VPGF.showPanel()
 end
 
-Events.OnGameBoot.Add(onGameBoot)
-Events.OnGameStart.Add(onGameStart)
-Events.OnKeyPressed.Add(onKeyPressed)
-if Events.OnFillWorldObjectContextMenu then
-    Events.OnFillWorldObjectContextMenu.Add(onFillWorldObjectContextMenu)
+-- Main menu: small text so the user sees the mod is loaded before entering a save.
+local menuBadge = false
+local function drawMenuBadge()
+    local tm = getTextManager and getTextManager()
+    if not tm then return end
+    local text = "VPGeometryFix " .. VPGF.VERSION .. " geladen - Java-Teil: "
+        .. (VPGF.java() and "OK" or "NICHT geladen")
+    try(function() tm:DrawString(UIFont.Small, 11, 11, text, 0, 0, 0, 1) end)
+    try(function() tm:DrawString(UIFont.Small, 10, 10, text, 1, 0.8, 0.2, 1) end)
 end
+
+local function onMainMenuEnter()
+    if menuBadge or not Events.OnPostUIDraw then return end
+    menuBadge = true
+    Events.OnPostUIDraw.Add(drawMenuBadge)
+end
+
+local function removeMenuBadge()
+    if not menuBadge then return end
+    menuBadge = false
+    Events.OnPostUIDraw.Remove(drawMenuBadge)
+end
+
+-- Every handler runs protected: an error is reported once with our prefix
+-- (console.txt + panel) instead of silently breaking the mod.
+local function safe(name, fn)
+    local reportedError = false
+    return function(...)
+        local ok, err = pcall(fn, ...)
+        if not ok and not reportedError then
+            reportedError = true
+            log("ERROR in " .. name .. ": " .. tostring(err))
+            setResults({ "FEHLER in " .. name .. ": " .. tostring(err) })
+        end
+    end
+end
+
+local function register(eventName, name, fn)
+    local ev = Events and Events[eventName]
+    if ev and ev.Add then
+        ev.Add(safe(name, fn))
+    else
+        log("event " .. eventName .. " not available")
+    end
+end
+
+register("OnGameBoot", "OnGameBoot", function() onGameBoot() onMainMenuEnter() end)
+register("OnMainMenuEnter", "OnMainMenuEnter", onMainMenuEnter)
+register("OnGameStart", "OnGameStart", function() removeMenuBadge() onGameStart() end)
+register("OnKeyPressed", "OnKeyPressed", onKeyPressed)
+register("OnFillWorldObjectContextMenu", "ContextMenu", onFillWorldObjectContextMenu)
