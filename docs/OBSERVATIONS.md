@@ -16,6 +16,16 @@ und Viewpoints Klassen sie bestätigen.
 | D | Motel-Arkaden | Vordach aus einzelnen Kacheln mit **Stufen/Sägezahn** und Lücken statt durchgehender Fläche | Pro-Tile-Neigungen passen an Tile-Grenzen nicht zusammen (Ecken/Übergangs-Sprites) |
 | E | Gelbes Haus, linke Seite | Rechteckiges Wandstück steht vor der Fassade / Wandlücke | Wand-Overlay oder Wandteil mit Versatz |
 
+## Zuordnung nach den Formwerten (0.2.2-test, siehe RESEARCH.md Update 4)
+
+| # | wahrscheinlichste Ursache [H] | Sicherheit |
+|---|---|---|
+| A | falsch platzierte Form trägt die Sprite-Grafik (Stufenblock-Oberkante 0.21–0.25 über der Schräge, geliehene Form eines anderen Tiles) oder doppelte Darstellung durch Modellpakete | gering |
+| B | Giebelleisten liegen auf senkrechten 2.25 × 3.45-Platten statt in der Dachschräge | mittel |
+| C | Dach-Sprites ohne Form (`roofs_01_11/12/69`) bzw. nach Nord/West fallende 39°-Flächen ohne Iso-Grafik | mittel-gering |
+| D | Stufenblöcke (`roofs_30_01_40…45` und davon geliehene Formen) | mittel |
+| E | nicht durch Dachdaten erklärt; evtl. Leisten-Platte ohne Alpha-Schnitt oder Modellpaket | sehr gering |
+
 ## Was eine Inspektion jetzt zeigt (Mod 0.1.4-diag)
 
 Jede TILE-Zeile enthält Viewpoints Quellgeometrie, z. B.

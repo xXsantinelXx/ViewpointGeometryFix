@@ -7,8 +7,10 @@ import se.krka.kahlua.integration.annotations.LuaMethod;
 import vpgeometryfix.diag.ClassInventory;
 import vpgeometryfix.diag.Config;
 import vpgeometryfix.diag.Env;
+import vpgeometryfix.diag.GeometrySource;
 import vpgeometryfix.diag.KnownBinaries;
 import vpgeometryfix.diag.Log;
+import vpgeometryfix.diag.MeshProbe;
 import vpgeometryfix.diag.Reflect;
 import vpgeometryfix.diag.SquareInspector;
 import vpgeometryfix.diag.ViewpointProbe;
@@ -230,6 +232,44 @@ public final class LuaBridge {
         } catch (Throwable t) {
             Log.error("reportEnd failed", t);
             return null;
+        }
+    }
+
+    /**
+     * "Dach-Daten": one on-demand report about Viewpoint's roof meshes - static
+     * units, the texture projection probe, the mesh cache for roofs_* and the
+     * source of every roof shape seen so far. Returns a short status for the panel.
+     */
+    @LuaMethod(name = "VPGF_roofData", global = true)
+    public static String roofData() {
+        try {
+            StringBuilder sb = new StringBuilder("VPGeometryFix roof data ").append(java.time.LocalDateTime.now()).append('\n');
+            sb.append("Viewpoint: ").append(Env.viewpointVersion(Env.detect(false))).append('\n');
+            sb.append("fix B: ").append(RoofFallback.isEnabled() ? "ON" : "OFF").append(", geometryFor calls ")
+                    .append(RoofFallback.calls()).append(", roofs with shape ").append(RoofFallback.roofShaped())
+                    .append(", without ").append(RoofFallback.roofEmpty()).append(", replaced ").append(RoofFallback.replaced()).append('\n');
+            sb.append("\n--- statics\n");
+            for (String l : MeshProbe.statics()) sb.append(l).append('\n');
+            sb.append("\n--- texture projection probe (MeshBuilder.frameX/frameY)\n");
+            for (String l : MeshProbe.frameProbe()) sb.append(l).append('\n');
+            List<String> sources = GeometrySource.report();
+            sb.append("\n--- shape sources\n");
+            for (String l : sources) sb.append(l).append('\n');
+            List<String> cache = MeshProbe.cacheSnapshot("roofs_");
+            sb.append("\n--- mesh cache (roofs_*)\n");
+            for (String l : cache) sb.append(l).append('\n');
+            Path dir = vpgeometryfix.diag.Paths.outputDir().resolve("inspect");
+            java.nio.file.Files.createDirectories(dir);
+            Path file = dir.resolve("roofdata_" + java.time.LocalDateTime.now()
+                    .format(java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss")) + ".txt");
+            java.nio.file.Files.writeString(file, sb.toString(), java.nio.charset.StandardCharsets.UTF_8);
+            String head = (sources.size() > 1 ? sources.get(1) : "sources: ?") + "; " + (cache.isEmpty() ? "" : cache.get(0));
+            Log.info("roof data: " + head);
+            Log.info("report -> " + file);
+            return head + "\n" + file;
+        } catch (Throwable t) {
+            Log.error("roofData failed", t);
+            return "Dach-Daten fehlgeschlagen: " + t;
         }
     }
 

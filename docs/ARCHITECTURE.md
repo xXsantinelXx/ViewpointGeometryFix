@@ -42,6 +42,8 @@ Java (vpgeometryfix, JAR ohne Link-Abhängigkeiten)
      ├─ Classifier     heuristische Tile-Art aus Klasse + Sprite-Name
      ├─ ViewpointProbe Viewpoint-Statusfelder (on demand), Pick-Platzhalter
      ├─ ClassInventory Klassenliste + Signaturen eines JARs (lokal, nicht veröffentlichen)
+     ├─ MeshProbe      (0.2.3) Viewpoint-Konstanten, Projektionstest, Mesh-Cache-Auszug – nur lesend, auf Knopfdruck
+     ├─ GeometrySource (0.2.3) Herkunft der Dachformen (eigene / zugeordnete / nur Viewpoint)
      ├─ Config / Log / Paths / Reflect
 ```
 

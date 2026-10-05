@@ -1,7 +1,7 @@
 name=Viewpoint Geometry Fix (Diagnostics)
 id=ViewpointGeometryFix
 author=ViewpointGeometryFix contributors
-modversion=0.2.2-test
+modversion=0.2.3-test
 require=\ZombieBuddy
 javaJarFile=media/java/client/ViewpointGeometryFix.jar
 javaPkgName=vpgeometryfix
