@@ -46,7 +46,7 @@ Copy-Item "$Root\LICENSE" "$Mod\LICENSE.txt"
 Write-Host '[build] VPGF Doctor'
 $DocOut = "$Out\doctor\VPGF-Doctor"
 New-Item -ItemType Directory -Force $DocOut | Out-Null
-foreach ($f in 'VPGF-Doctor.bat', 'VPGF-Doctor.ps1') {
+foreach ($f in 'VPGF-Doctor.bat', 'VPGF-Doctor.ps1', 'VPGF-RoofData.bat', 'VPGF-RoofData.ps1') {
     (Get-Content "$Root\resources\doctor\$f") | Set-Content -Encoding ASCII "$DocOut\$f"
 }
 $docZip = "$Dist\VPGF-Doctor.zip"

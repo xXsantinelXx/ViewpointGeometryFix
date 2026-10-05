@@ -2,6 +2,7 @@ package vpgeometryfix;
 
 import vpgeometryfix.diag.Config;
 import vpgeometryfix.diag.Log;
+import vpgeometryfix.fix.RoofFallback;
 
 /**
  * ZombieBuddy entry point: ZombieBuddy invokes {@code <javaPkgName>.Main.main}
@@ -18,7 +19,10 @@ public final class Main {
     public static void main(String[] args) {
         try {
             Config.load();
-            Log.fileOnly("Java component loaded via ZombieBuddy (debug=" + Config.isDebug() + ", source=" + Config.source() + ")");
+            // Roof fix variant B: on by default in this test build, config key roofFixB=false disables it.
+            RoofFallback.setEnabled(Config.getBool("roofFixB", true));
+            Log.fileOnly("Java component loaded via ZombieBuddy (debug=" + Config.isDebug() + ", source=" + Config.source()
+                    + ", roofFixB=" + RoofFallback.isEnabled() + ")");
         } catch (Throwable t) {
             System.out.println(Log.PREFIX + "ERROR Java init failed: " + t);
         }

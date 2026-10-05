@@ -21,7 +21,7 @@ javac --release 17 -nowarn -d "$OUT/stubs" $(find "$ROOT/src/stubs/java" -name '
 echo "[build] compile mod sources"
 javac --release 17 -Xlint:all -Werror -cp "$OUT/stubs" -d "$OUT/classes" $(find "$ROOT/src/main/java" -name '*.java')
 
-if find "$OUT/classes" -path '*se/krka*' | grep -q .; then
+if find "$OUT/classes" -path '*se/krka*' -o -path '*me/zed_0xff*' | grep -q .; then
   echo "[build] ERROR: stub classes leaked into the mod classes" >&2; exit 1
 fi
 
@@ -40,7 +40,7 @@ cp "$ROOT/LICENSE" "$MOD/LICENSE.txt"
 echo "[build] VPGF Doctor (PowerShell, runs outside the game)"
 mkdir -p "$OUT/doctor/VPGF-Doctor"
 # Windows script files need CRLF line endings
-for f in VPGF-Doctor.bat VPGF-Doctor.ps1; do
+for f in VPGF-Doctor.bat VPGF-Doctor.ps1 VPGF-RoofData.bat VPGF-RoofData.ps1; do
   sed 's/\r*$/\r/' "$ROOT/resources/doctor/$f" > "$OUT/doctor/VPGF-Doctor/$f"
 done
 

@@ -60,6 +60,25 @@ public final class Config {
         source = why;
     }
 
+    public static boolean getBool(String key, boolean def) {
+        String v = props.getProperty(key);
+        return v == null ? def : Boolean.parseBoolean(v.trim());
+    }
+
+    /** Sets a key and writes config.properties (only our own folder). */
+    public static synchronized void put(String key, String value) {
+        props.setProperty(key, value);
+        Path file = Paths.outputDir().resolve("config.properties");
+        try {
+            Files.createDirectories(file.getParent());
+            try (java.io.Writer w = Files.newBufferedWriter(file, StandardCharsets.UTF_8)) {
+                props.store(w, "VPGeometryFix");
+            }
+        } catch (IOException | RuntimeException e) {
+            Log.error("cannot write " + file, e);
+        }
+    }
+
     public static String get(String key, String def) {
         String v = props.getProperty(key);
         return v == null ? def : v.trim();

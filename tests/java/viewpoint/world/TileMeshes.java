@@ -6,10 +6,10 @@ import java.util.ArrayList;
 public final class TileMeshes {
     private TileMeshes() {}
 
-    /** Roof sprites get two shapes, everything else none. */
+    /** Like the real data: roofs_01 sprites have two shapes, other roof colour variants none. */
     static ArrayList<Object> geometryFor(fake.FakeSquare.FakeSprite sprite) {
         ArrayList<Object> out = new ArrayList<>();
-        if (sprite.name.startsWith("roofs_")) {
+        if (sprite.name.startsWith("roofs_01_")) {
             out.add(new Polygon(new float[] {0, 0, 1, 1}));
             out.add(new Box());
         }

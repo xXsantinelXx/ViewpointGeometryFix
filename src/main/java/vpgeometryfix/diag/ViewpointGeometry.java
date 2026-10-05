@@ -45,6 +45,9 @@ public final class ViewpointGeometry {
                 sb.append(')');
             }
         }
+        Object nameObj = Reflect.call(sprite, "getName");
+        String sib = vpgeometryfix.fix.RoofFallback.siblingSprite(nameObj == null ? null : nameObj.toString());
+        if (sib != null) sb.append(" fixB=").append(vpgeometryfix.fix.RoofFallback.isEnabled() ? "an" : "aus").append("<-").append(sib);
         Object rise = callStatic(WORLD_MESHER, "rise", obj);
         if (rise != null) sb.append(" rise=").append(rise);
         return sb.toString();

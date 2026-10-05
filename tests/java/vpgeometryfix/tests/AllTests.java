@@ -194,6 +194,58 @@ public final class AllTests {
             eq(null, ClassInventory.write(tmp, "viewpoint.", "t"));
         });
 
+        test("roof fix B: sibling mapping", () -> {
+            eq("roofs_01_12", vpgeometryfix.fix.RoofFallback.siblingSprite("roofs_02_12"));
+            eq("roofs_01_0", vpgeometryfix.fix.RoofFallback.siblingSprite("roofs_05_0"));
+            eq("roofs_30_01_7", vpgeometryfix.fix.RoofFallback.siblingSprite("roofs_30_10_7"));
+            eq("roofs_30_01_7", vpgeometryfix.fix.RoofFallback.siblingSprite("roofs_30_02_7"));
+            eq(null, vpgeometryfix.fix.RoofFallback.siblingSprite("roofs_01_3"));
+            eq(null, vpgeometryfix.fix.RoofFallback.siblingSprite("roofs_06_3"));
+            eq(null, vpgeometryfix.fix.RoofFallback.siblingSprite("roofs_30_11_3"));
+            eq(null, vpgeometryfix.fix.RoofFallback.siblingSprite("roofs_accents_01_0"));
+            eq(null, vpgeometryfix.fix.RoofFallback.siblingSprite("walls_exterior_house_01_0"));
+            eq(null, vpgeometryfix.fix.RoofFallback.siblingSprite(null));
+        });
+
+        test("roof fix B: replaces only empty results of covered roofs", () -> {
+            var rf = vpgeometryfix.fix.RoofFallback.class;
+            vpgeometryfix.fix.RoofFallback.setEnabled(false);
+            eq(null, vpgeometryfix.fix.RoofFallback.apply(new FakeSquare.FakeSprite("roofs_02_12"), new java.util.ArrayList<>()));
+            vpgeometryfix.fix.RoofFallback.setEnabled(true);
+            long before = vpgeometryfix.fix.RoofFallback.replaced();
+            var r = vpgeometryfix.fix.RoofFallback.apply(new FakeSquare.FakeSprite("roofs_02_12"), new java.util.ArrayList<>());
+            check(r != null && r.size() == 2);
+            eq(before + 1, vpgeometryfix.fix.RoofFallback.replaced());
+            eq(null, vpgeometryfix.fix.RoofFallback.apply(new FakeSquare.FakeSprite("roofs_02_12"), java.util.List.of("kept")));
+            eq(null, vpgeometryfix.fix.RoofFallback.apply(new FakeSquare.FakeSprite("walls_01_0"), new java.util.ArrayList<>()));
+            eq(null, vpgeometryfix.fix.RoofFallback.apply(new FakeSquare.FakeSprite("roofs_06_0"), new java.util.ArrayList<>()));
+            eq(null, vpgeometryfix.fix.RoofFallback.apply(null, null));
+            check(vpgeometryfix.fix.RoofFallback.calls() >= 6);
+            check(rf != null);
+        });
+
+        test("roof fix status, toggle and TILE marker", () -> {
+            vpgeometryfix.fix.RoofFallback.setEnabled(true);
+            contains(LuaBridge.roofFixStatus(), "Dach-Fix B (Code): AN, Patch aktiv");
+            contains(LuaBridge.roofFixStatus(), "Dach-Fix A (Datei): nicht installiert");
+            contains(LuaBridge.status(), "Dach-Fix B (Code): AN");
+            String out = captureStdout(() -> LuaBridge.setRoofFix(false));
+            contains(out, "roof fix B: OFF");
+            check(!LuaBridge.isRoofFix());
+            Config.load();
+            check(!Config.getBool("roofFixB", true)); // persisted
+            LuaBridge.setRoofFix(true);
+            FakeSquare sq = new FakeSquare(1, 1, 1);
+            sq.getObjects().add(new FakeSquare.FakeObject("roofs_03_5"));
+            captureStdout(() -> {
+                LuaBridge.reportBegin("t", 1, 1, 1);
+                LuaBridge.reportSquare(sq, "z+0");
+                LuaBridge.reportEnd();
+            });
+            // without ZombieBuddy the advice is not woven in, so vpGeom stays 0 here; in game it shows the sibling shapes
+            contains(LuaBridge.lastSummary(), "sprite=roofs_03_5 kind~ROOF vpGeom=0 fixB=an<-roofs_01_5");
+        });
+
         System.out.println();
         System.out.println("passed: " + passed + ", failed: " + failures.size());
         for (String f : failures) System.out.println("FAIL " + f);

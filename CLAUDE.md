@@ -10,7 +10,12 @@ Lies zuerst README.md, docs/RESEARCH.md, docs/ARCHITECTURE.md.
   unverändert performant bleiben: keine Per-Frame-Arbeit ohne ausdrückliche
   Aktivierung durch den Nutzer.
 * Rendering-Änderungen erst ab Phase 3 (siehe ARCHITECTURE.md) und nur, wenn
-  der Nutzer es ausdrücklich freigibt.
+  der Nutzer es ausdrücklich freigibt. Freigegeben (2026-10-05): der schaltbare
+  Dach-Fix (Varianten A und B, `fix/RoofFallback`, `Patch_RoofGeometry`,
+  `VPGF-RoofData`). Weitere Eingriffe brauchen eine neue Freigabe.
+* `@Patch`-Klassen (ZombieBuddy-2.x-API, Stub in `src/stubs`) müssen direkt im
+  Paket `vpgeometryfix` liegen und dürfen nur leere/fehlende Ergebnisse
+  ergänzen, nie vorhandene Viewpoint-Ergebnisse überschreiben.
 * Nicht spekulieren: jede Aussage über Spiel-/Viewpoint-Interna mit
   Belegstufe [V1]/[V2]/[U]/[H] versehen (Definition in RESEARCH.md).
   Unverifizierte Namen nur reflektiv und abgesichert verwenden.
