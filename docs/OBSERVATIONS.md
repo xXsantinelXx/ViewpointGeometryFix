@@ -16,6 +16,22 @@ und Viewpoints Klassen sie bestätigen.
 | D | Motel-Arkaden | Vordach aus einzelnen Kacheln mit **Stufen/Sägezahn** und Lücken statt durchgehender Fläche | Pro-Tile-Neigungen passen an Tile-Grenzen nicht zusammen (Ecken/Übergangs-Sprites) |
 | E | Gelbes Haus, linke Seite | Rechteckiges Wandstück steht vor der Fassade / Wandlücke | Wand-Overlay oder Wandteil mit Versatz |
 
+## Präzisierung durch den Nutzer (2026-10-05)
+
+Das Hauptproblem sind **Dächer allgemein**: oft fehlt **eine Dachhälfte**, und
+**Dachteile/Dachkanten hängen in der Luft**. Stufen (D) sind nur ein Nebenaspekt.
+Andere schwebende Objekte (Möbel, Wände, Pflanzen) wurden nicht genannt.
+
+Arbeitshypothese [H, Zahlen V1]: Die steilen Dächer (`roofs_01`, 39,2°) sind genau
+so geneigt, dass nach Nord/West abfallende Hälften in der Iso-Ansicht nur als Strich
+erscheinen. Für diese Hälften hat das Spiel keine Form (in den Daten hat keine nach
+hinten geneigte 39°-Fläche eine Form). Viewpoint bekommt dafür nichts (Hälfte fehlt,
+z. B. `roofs_01_11/12/69`) oder die Form eines anderen Tiles mit falscher Neigung
+(`roofs_01_14` = `roofs_01_4`, schwebende Fläche). Dazu kommen die Giebelleisten auf
+senkrechten 2,25 × 3,45-Platten (Kanten in der Luft). Nächster Schritt laut Nutzer:
+erst Daten mit 0.2.3-test („Dach-Daten“ am kaputten Haus), dann ggf. Freigabe für
+einen schaltbaren Rückseiten-Fix.
+
 ## Zuordnung nach den Formwerten (0.2.2-test, siehe RESEARCH.md Update 4)
 
 | # | wahrscheinlichste Ursache [H] | Sicherheit |
