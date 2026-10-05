@@ -3,8 +3,13 @@
 
     Does NOT change rendering, gameplay, save games, Viewpoint or game files.
     All heavy work runs only on explicit user action (hotkeys / console calls).
-    Normal play cost: one OnKeyPressed check per key press. The optional
-    "hover" mode adds a throttled OnTick handler only while it is switched on.
+    Normal play cost: one OnKeyPressed check per key press. The on-screen
+    overlay (OnPostUIDraw) is registered only while debug mode is on or a
+    message is showing; hover mode adds a throttled OnTick only while on.
+
+    Hotkeys are single keys (no modifiers), listed and rebindable in
+    Options > Key Bindings > [VPGeometryFix]. Registration uses the keyBinding
+    table + getCore():getKey(name), the pattern PeekAView uses on 42.21.
 
     Console API (debug console / Lua):
         VPGF.setDebug(true|false)
@@ -17,16 +22,27 @@
 ]]
 
 VPGF = VPGF or {}
-VPGF.VERSION = "0.1.0-diag"
+VPGF.VERSION = "0.1.1-diag"
 VPGF.PREFIX = "[VPGeometryFix] "
 
--- Hotkeys: always Ctrl+Shift+<key>. Keyboard.KEY_* constants are exposed by the game.
-VPGF.keys = VPGF.keys or {
-    toggleDebug = Keyboard.KEY_F9,
-    inspect = Keyboard.KEY_F10,
-    hover = Keyboard.KEY_F11,
-    inventory = Keyboard.KEY_F8,
+-- Key binding names (shown in Options > Key Bindings) and defaults.
+-- Fallback numbers are the LWJGL key codes in case a Keyboard constant is missing.
+local function kc(name, code)
+    local v = Keyboard and Keyboard[name]
+    return v or code
+end
+VPGF.bindings = {
+    { action = "toggleDebug", name = "VPGF Toggle Debug", default = kc("KEY_HOME", 199) },
+    { action = "inspect", name = "VPGF Inspect Target", default = kc("KEY_END", 207) },
+    { action = "hover", name = "VPGF Hover Mode", default = kc("KEY_PRIOR", 201) },
+    { action = "inventory", name = "VPGF Class Inventory", default = kc("KEY_NEXT", 209) },
 }
+if keyBinding then
+    table.insert(keyBinding, { value = "[VPGeometryFix]" })
+    for _, b in ipairs(VPGF.bindings) do
+        table.insert(keyBinding, { value = b.name, key = b.default })
+    end
+end
 VPGF.facingDistance = VPGF.facingDistance or 1   -- tiles ahead of the player
 VPGF.columnBelow = VPGF.columnBelow or 1         -- also inspect z-1 .. z+columnAbove
 VPGF.columnAbove = VPGF.columnAbove or 2         -- roofs usually sit 1-2 levels above the player
@@ -38,6 +54,9 @@ local hoverOn = false
 local hoverTick = 0
 local lastHoverKey = nil
 local reported = false
+local messageText = nil
+local messageUntil = 0
+local overlayOn = false
 
 local function log(msg)
     print(VPGF.PREFIX .. tostring(msg))
@@ -49,9 +68,69 @@ local function try(fn, ...)
     return nil
 end
 
+-------------------------------------------------------------------------------
+-- On-screen feedback (console.txt is not visible in game)
+-------------------------------------------------------------------------------
+
+local function nowMs()
+    return (getTimestampMs and try(getTimestampMs)) or (os and os.time and os.time() * 1000) or 0
+end
+
+local function keyName(action)
+    for _, b in ipairs(VPGF.bindings) do
+        if b.action == action then
+            local code = getCore and try(function() return getCore():getKey(b.name) end) or b.default
+            local n = Keyboard and Keyboard.getKeyName and try(Keyboard.getKeyName, code)
+            return n or tostring(code)
+        end
+    end
+    return "?"
+end
+
+local updateOverlay
+
+local function drawOverlay()
+    local tm = getTextManager and getTextManager()
+    if not tm then return end
+    local y = 40
+    local function line(text, r, g, b)
+        try(function() tm:DrawString(UIFont.Small, 21, y + 1, text, 0, 0, 0, 1) end)
+        try(function() tm:DrawString(UIFont.Small, 20, y, text, r, g, b, 1) end)
+        y = y + 18
+    end
+    if VPGF.isDebug() then
+        line("VPGeometryFix DEBUG  |  " .. keyName("inspect") .. ": untersuchen  " .. keyName("hover")
+            .. ": hover  " .. keyName("inventory") .. ": Inventar  " .. keyName("toggleDebug") .. ": aus", 1, 0.85, 0.2)
+        if not VPGF.java() then line("Java-Teil NICHT geladen (ZombieBuddy?) - nur Lua-Zusammenfassung", 1, 0.3, 0.3) end
+    end
+    if messageText then
+        if nowMs() < messageUntil then
+            line(messageText, 0.4, 1, 0.4)
+        else
+            messageText = nil
+            updateOverlay()
+        end
+    end
+end
+
+updateOverlay = function()
+    local want = VPGF.isDebug() or messageText ~= nil
+    if want == overlayOn or not (Events and Events.OnPostUIDraw) then return end
+    overlayOn = want
+    if want then Events.OnPostUIDraw.Add(drawOverlay) else Events.OnPostUIDraw.Remove(drawOverlay) end
+end
+
+-- Shows a message on screen for a few seconds and in console.txt.
+function VPGF.notify(text, seconds)
+    print(VPGF.PREFIX .. tostring(text))
+    messageText = "VPGeometryFix: " .. tostring(text)
+    messageUntil = nowMs() + (seconds or 5) * 1000
+    updateOverlay()
+end
+
 -- True when the Java part (ZombieBuddy-loaded JAR) registered its globals.
 function VPGF.java()
-    return type(VPGF_javaAvailable) == "function" and try(VPGF_javaAvailable) == true
+    return VPGF_javaAvailable ~= nil and try(VPGF_javaAvailable) == true
 end
 
 function VPGF.isDebug()
@@ -66,10 +145,8 @@ function VPGF.setDebug(on)
     else
         log("Debug mode: " .. (luaDebug and "ON" or "OFF") .. " (runtime toggle, Lua only)")
     end
-    local player = getPlayer and getPlayer()
-    if player and HaloTextHelper then
-        try(HaloTextHelper.addText, player, "VPGeometryFix debug " .. (luaDebug and "ON" or "OFF"))
-    end
+    VPGF.notify("Debug " .. (luaDebug and "AN" or "AUS"), 3)
+    if not luaDebug then VPGF.setHover(false) end
 end
 
 -- Mod ids that look like Viewpoint, excluding this mod and known add-ons.
@@ -195,7 +272,7 @@ end
 
 function VPGF.inspectAt(x, y, z, source)
     if not VPGF.isDebug() then
-        log("inspect ignored: debug mode is OFF (Ctrl+Shift+F9)")
+        VPGF.notify("Debug ist AUS - zuerst " .. keyName("toggleDebug") .. " druecken")
         return
     end
     local cell = getCell and getCell()
@@ -216,22 +293,27 @@ function VPGF.inspectAt(x, y, z, source)
     end
     if useJava then
         local path = try(VPGF_reportEnd)
-        local player = getPlayer and getPlayer()
-        if player and HaloTextHelper and path then
-            try(HaloTextHelper.addText, player, "VPGeometryFix: report written")
+        if path then
+            VPGF.notify(string.format("Tile %d,%d,%d untersucht (%s) -> %s", x, y, z, source, tostring(path)), 8)
+        else
+            VPGF.notify("Bericht konnte nicht geschrieben werden - siehe console.txt", 8)
         end
+    else
+        VPGF.notify(string.format("Tile %d,%d,%d untersucht (nur Lua) - Ergebnis in console.txt", x, y, z), 8)
     end
 end
 
 function VPGF.inspect()
     local x, y, z, src = VPGF.resolveTarget()
-    if not x then log("inspect: no target (no player?)") return end
+    if not x then VPGF.notify("kein Ziel (kein Spieler?)") return end
     VPGF.inspectAt(x, y, z, src)
 end
 
 function VPGF.inventory(which)
-    if not VPGF.java() then log("inventory needs the Java part (ZombieBuddy)") return end
-    return try(VPGF_inventory, which or "viewpoint")
+    if not VPGF.java() then VPGF.notify("Inventar braucht den Java-Teil (ZombieBuddy)") return end
+    local path = try(VPGF_inventory, which or "viewpoint")
+    VPGF.notify(path and ("Inventar -> " .. tostring(path)) or "Inventar fehlgeschlagen (Viewpoint gefunden?) - siehe console.txt", 8)
+    return path
 end
 
 function VPGF.viewpointState()
@@ -263,6 +345,9 @@ local function onHoverTick()
         log("hover " .. src .. " " .. x .. "," .. y .. "," .. (z + dz) .. ": "
             .. luaSquareSummary(cell:getGridSquare(x, y, z + dz)))
     end
+    messageText = "VPGeometryFix hover " .. src .. " " .. key .. ": " .. luaSquareSummary(cell:getGridSquare(x, y, z))
+    messageUntil = nowMs() + 3000
+    updateOverlay()
 end
 
 function VPGF.setHover(on)
@@ -274,37 +359,39 @@ function VPGF.setHover(on)
     else
         Events.OnTick.Remove(onHoverTick)
     end
-    log("hover mode " .. (on and "ON" or "OFF"))
+    VPGF.notify("Hover " .. (on and "AN" or "AUS"), 3)
 end
 
 -------------------------------------------------------------------------------
 -- Events
 -------------------------------------------------------------------------------
 
-local function modifiersDown()
-    local ctrl = isCtrlKeyDown and try(isCtrlKeyDown)
-    local shift = isShiftKeyDown and try(isShiftKeyDown)
-    return ctrl and shift
+-- Maps a pressed key code to an action using the live bindings from Options.
+local function actionFor(key)
+    for _, b in ipairs(VPGF.bindings) do
+        local code = getCore and try(function() return getCore():getKey(b.name) end)
+        if code == nil or code == 0 then code = b.default end
+        if key == code then return b.action end
+    end
+    return nil
 end
 
 local function onKeyPressed(key)
-    local k = VPGF.keys
-    if key ~= k.toggleDebug and key ~= k.inspect and key ~= k.hover and key ~= k.inventory then return end
-    if not modifiersDown() then return end
-    if key == k.toggleDebug then
+    local action = actionFor(key)
+    if not action then return end
+    if action == "toggleDebug" then
         VPGF.setDebug(not VPGF.isDebug())
-        if not VPGF.isDebug() then VPGF.setHover(false) end
         return
     end
     if not VPGF.isDebug() then
-        log("debug mode is OFF - press Ctrl+Shift+F9 first")
+        VPGF.notify("Debug ist AUS - zuerst " .. keyName("toggleDebug") .. " druecken")
         return
     end
-    if key == k.inspect then
+    if action == "inspect" then
         VPGF.inspect()
-    elseif key == k.hover then
+    elseif action == "hover" then
         VPGF.setHover(not hoverOn)
-    elseif key == k.inventory then
+    elseif action == "inventory" then
         VPGF.inventory("viewpoint")
     end
 end
@@ -318,6 +405,8 @@ end
 local function onGameStart()
     -- Fallback if OnGameBoot ran before this file was loaded (mod enabled per save).
     onGameBoot()
+    VPGF.notify("aktiv" .. (VPGF.java() and "" or " (OHNE Java-Teil)") .. " - Debug: " .. keyName("toggleDebug")
+        .. "  (Tasten: Optionen > Tastenbelegung > [VPGeometryFix])", 10)
     if not VPGF.isDebug() then return end
     log("session start; viewpoint state: " .. tostring(VPGF.java() and try(VPGF_viewpointState) or "n/a"))
 end

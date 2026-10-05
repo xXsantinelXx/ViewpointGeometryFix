@@ -27,14 +27,25 @@ Kurzfilter (PowerShell):
 Select-String -Path "$env:USERPROFILE\Zomboid\console.txt" -Pattern '\[VPGeometryFix\]'
 ```
 
-## Tasten (immer Strg+Umschalt)
+## Tasten (einzeln, ohne Strg/Umschalt; änderbar unter Optionen → Tastenbelegung → `[VPGeometryFix]`)
 
-| Taste | Wirkung | braucht Debug |
+| Standardtaste | Wirkung | braucht Debug |
 |---|---|---|
-| F9 | Debug-Modus an/aus | nein |
-| F10 | Ziel inspizieren → Bericht-Datei | ja |
-| F11 | Hover-Modus an/aus (Konsolen-Zusammenfassung bei Zielwechsel) | ja |
-| F8 | Viewpoint-Klasseninventar schreiben | ja |
+| Pos1 / Home | Debug-Modus an/aus | nein |
+| Ende / End | Ziel inspizieren → Bericht-Datei | ja |
+| Bild↑ / PageUp | Hover-Modus an/aus (Zusammenfassung bei Zielwechsel) | ja |
+| Bild↓ / PageDown | Viewpoint-Klasseninventar schreiben | ja |
+
+Rückmeldung erscheint oben links auf dem Bildschirm (zusätzlich in
+console.txt). Beim Betreten eines Spielstands zeigt die Mod 10 Sekunden lang
+„VPGeometryFix: aktiv …“ – fehlt diese Meldung, ist die Mod in diesem
+Spielstand nicht aktiv (B42: Mods pro Spielstand prüfen). Bei aktivem Debug
+steht oben links dauerhaft ein gelber Hinweis mit den Tasten.
+
+Hinweis 0.1.0-diag: Dort waren es Strg+Umschalt+F8…F11. Diese Abfrage
+(`isCtrlKeyDown`/`isShiftKeyDown`) war für 42.21 unverifiziert und hat beim
+Nutzer nicht reagiert; ab 0.1.1-diag wird das in 42.21 belegte
+PeekAView-Muster (`keyBinding`-Tabelle + `getCore():getKey`) verwendet.
 
 Debug dauerhaft: `%USERPROFILE%\Zomboid\VPGeometryFix\config.properties`
 mit `debug=true`, oder Startoption `-Dvpgf.debug=true`.
@@ -73,18 +84,18 @@ Die Konsole erhält eine Zusammenfassung pro Ebene.
 ## Reproduzierbares Vorgehen für einen Fehlerfall
 
 1. Viewpoint-, ZB- und Spielversion aus dem Startblock notieren.
-2. Im First-Person zum fehlerhaften Dach/zur Wand gehen; Strg+Umschalt+F9.
-3. `VPGF.inspect()` (F10) mit Blick auf das Objekt; Koordinaten aus der
+2. Im First-Person zum fehlerhaften Dach/zur Wand gehen; Pos1 (Debug an).
+3. `VPGF.inspect()` (Ende) mit Blick auf das Objekt; Koordinaten aus der
    Konsolenzeile `inspect target X,Y,Z` notieren.
-4. `VPGF.setTarget(X, Y, Z)` und aus mehreren Positionen/Blickwinkeln F10 –
+4. `VPGF.setTarget(X, Y, Z)` und aus mehreren Positionen/Blickwinkeln Ende –
    gleiche Säule, verschiedene Viewpoint-Zustände.
-5. Zum Vergleich mit `O` in die isometrische Ansicht wechseln und erneut F10.
+5. Zum Vergleich mit `O` in die isometrische Ansicht wechseln und erneut Ende.
 6. Ein Fehlerbericht enthält: Startblock, Koordinaten, Screenshot FP und
    isometrisch, die Berichtsdateien.
 
 ## Klassen-Inventar
 
-`Strg+Umschalt+F8` bzw. `VPGF.inventory("viewpoint")` /
+Bild↓/PageDown bzw. `VPGF.inventory("viewpoint")` /
 `VPGF.inventory("game")` (Paket `zombie.iso.`) schreibt nach
 `…\VPGeometryFix\inventory\`. Enthält nur Klassennamen und
 Methoden-/Feldsignaturen (kein Bytecode). Klassen werden dafür ohne

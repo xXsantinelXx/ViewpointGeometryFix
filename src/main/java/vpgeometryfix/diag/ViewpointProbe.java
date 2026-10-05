@@ -86,7 +86,7 @@ public final class ViewpointProbe {
      * Placeholder for Viewpoint's own first-person pick (which tile/object the
      * crosshair hits). The audit names {@code MousePick.read(...)} in the render
      * path, but its result storage is UNKNOWN. Run the class inventory
-     * (Ctrl+Shift+F8) and fill this in once the members are identified.
+     * (PageDown key) and fill this in once the members are identified.
      */
     public static String pickedTarget() {
         return null;

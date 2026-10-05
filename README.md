@@ -5,7 +5,7 @@ Project Zomboid Build 42.21). Ziel ist, falsch, unvollständig, verschoben oder
 gar nicht gerenderte Dächer, Dachkanten, Wände und Objekte zu untersuchen und
 später zu beheben.
 
-**Aktueller Stand: 0.1.0-diag – reine Diagnoseversion.**
+**Aktueller Stand: 0.1.1-diag – reine Diagnoseversion.**
 Sie ändert **nichts** am Rendering, am Gameplay, an Savegames, an
 `projectzomboid.jar` oder an Viewpoint-Dateien und installiert keine Patches.
 
@@ -14,11 +14,13 @@ Sie ändert **nichts** am Rendering, am Gameplay, an Savegames, an
 * erkennt Project-Zomboid-Version, ZombieBuddy und Viewpoint (Klassen, JAR,
   `mod.info`, SHA-256 gegen auditierte Builds)
 * schreibt beim Spielstart den eindeutigen Block `[VPGeometryFix] Loaded` …
-* Debug-Modus (Strg+Umschalt+F9, `config.properties` oder `-Dvpgf.debug=true`)
-* Inspektion eines Ziel-Tiles samt Säule z-1…z+2 (Strg+Umschalt+F10) inkl.
+* Debug-Modus (Taste **Pos1/Home**, `config.properties` oder `-Dvpgf.debug=true`)
+* Inspektion eines Ziel-Tiles samt Säule z-1…z+2 (Taste **Ende/End**) inkl.
   Konsolen-API für feste X/Y/Z-Koordinaten
-* Hover-Modus (Strg+Umschalt+F11) und lokales Viewpoint-Klasseninventar
-  (Strg+Umschalt+F8) für die Suche nach den Geometrie-Klassen
+* Hover-Modus (**Bild↑/PageUp**) und lokales Viewpoint-Klasseninventar
+  (**Bild↓/PageDown**) für die Suche nach den Geometrie-Klassen
+* Alle Tasten sind unter Optionen → Tastenbelegung → `[VPGeometryFix]` änderbar;
+  Rückmeldung erscheint direkt oben links auf dem Bildschirm
 
 Details: [docs/DIAGNOSTICS.md](docs/DIAGNOSTICS.md) ·
 Recherche: [docs/RESEARCH.md](docs/RESEARCH.md) ·
@@ -34,7 +36,7 @@ Architektur: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
 ## Installation (Windows 11)
 
 1. Spiel schließen.
-2. `build/dist/ViewpointGeometryFix-0.1.0-diag.zip` nach
+2. `build/dist/ViewpointGeometryFix-0.1.1-diag.zip` nach
    `%USERPROFILE%\Zomboid\mods\` entpacken. Ergebnis:
    `%USERPROFILE%\Zomboid\mods\ViewpointGeometryFix\42\mod.info`.
 3. Spiel starten → Mods → **Viewpoint Geometry Fix (Diagnostics)** aktivieren
