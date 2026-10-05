@@ -54,6 +54,24 @@ with tempfile.TemporaryDirectory() as t:
             z.write(f, f.relative_to(t / "fxc").as_posix())
     (pz / "media/tileGeometry").mkdir(parents=True)
     (pz / "media/tileGeometry/roofs_01.txt").write_text("x" * 3000)
+    (pz / "media/tileGeometry.txt").write_text("\n".join(
+        ["tileGeometry", "{", "    VERSION = 2,"] + [f"    // filler {i}" for i in range(45)] + [
+        "    tileset", "    {", "        name = furniture_01,",
+        "        tile", "        {", "            xy = 0x0,", "            box", "            {", "            }", "        }",
+        "    }",
+        "    tileset", "    {", "        name = roofs_01,",
+        "        /* roofs_01_0 */", "        tile", "        {", "            xy = 0x0,",
+        "            properties", "            {", "                OpaquePixelsOnly = true,", "            }", "        }",
+        "        /* roofs_01_1 */", "        tile", "        {", "            xy = 1x0,",
+        "            polygon", "            {", "                xy = 0x0 1x1,", "            }",
+        "            box", "            {", "            }", "        }",
+        "    }",
+        "    tileset", "    {", "        name = roofs_02,",
+        "        tile", "        {", "            xy = 0x0,", "        }",
+        "    }", "}"]) + "\n")
+    ed = pz / "media/lua/client/DebugUIs/TileGeometryEditor"
+    ed.mkdir(parents=True)
+    (ed / "TileGeometryEditor.lua").write_text("local a = 1\nfunction X:onSave() getTileGeometry():write(modID) end\nlocal b = 2\n")
     (pz / "media/scripts").mkdir(parents=True)
     (pz / "media/scripts/items.txt").write_text("x")
     (addon / "media").mkdir()
@@ -98,6 +116,7 @@ with tempfile.TemporaryDirectory() as t:
     check("Mod liegt an falscher Stelle" not in rep, "correct path reported as wrong")
     check(rep.count("attempted index") == 1, "follow-up error listed once")
     check("ZombieBuddy nicht gefunden" not in rep, "no ZombieBuddy finding while it is active")
+    check("local b = 2" not in rep, "unrelated editor lines listed")
     check("items.txt" not in rep, "unrelated media file listed")
     check("60 fps" not in rep and "ViewpointTurbo/VRAM" not in rep, "performance spam must be filtered")
     check("javaagent" not in rep.split("=== ERGEBNIS ===")[1], "javaagent is no finding when ZombieBuddy is evidently active")

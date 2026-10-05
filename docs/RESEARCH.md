@@ -199,6 +199,33 @@ Zu prüfen [U]: (1) welche Datei die Tile-Geometrie enthält und ob Mods sie
 `TileMeshes.geometryFor` für die betroffenen Dach-Sprites liefert
 (Inspektion 0.1.4 schreibt es in jede TILE-Zeile: `vpGeom=…`).
 
+### Update 2026-10-05 (3): Datenquelle gefunden [V1]
+
+Doctor 0.3.1 beim Nutzer: Im Spiel liegen `media/tileGeometry.txt` (6,2 MB)
+und `media/tileDepthTextureAssignments.txt` (1,7 MB) sowie der Debug-Editor
+`media/lua/client/DebugUIs/TileGeometryEditor/*.lua`. **Kein** Workshop-Mod
+(auch nicht Viewpoint2Dto3D/PZVoxelStudio) bringt eigene Dateien dieser Art mit.
+Damit ist `tileGeometry.txt` die wahrscheinliche Quelle der Dach-/Kantenformen
+in Viewpoint [H, stark]. Offen [U]: Dateiformat der Dach-Einträge und ob das
+Spiel solche Dateien auch aus Mods lädt (Doctor 0.3.2, Abschnitt 4c).
+
+**Update (Doctor 0.3.2, Abschnitt 4c) [V1]:** `tileGeometry.txt` hat das Format
+`tileGeometry { VERSION = 2, tileset { name = …, /* sprite */ tile { xy = CxR,
+box|polygon|cylinder { translate, rotate, min, max … }, properties { … } } } }`
+(331 376 Zeilen). Die ersten Dach-Tiles (`roofs_03_0…4`) enthalten **nur**
+`properties { OpaquePixelsOnly = true }` – **keine Form**. Der Debug-Editor
+arbeitet pro Mod: `TileGeometryManager.getInstance():getModIDs()`,
+`getTileGeometryState():fromLua1("writeGeometryFile", modID)`, Standard
+`modID = "game"`. ⇒ (a) Für Dächer liefert `geometryFor` vermutlich nichts, und
+Viewpoint baut sie über einen Rückfallweg [H] – Kandidat für Fehlerbilder A–D;
+(b) das Spiel kennt Tile-Geometrie pro Mod, ein Daten-Fix per Mod ist damit
+plausibel [H; ob Viewpoint Mod-Geometrie liest: U]. Doctor 0.3.3 zählt für
+alle Dach-Tilesets, wie viele Tiles überhaupt eine Form haben.
+
+Außerdem existiert `viewpoint.render.MousePick$Hit` [V1] – vermutlich das
+Ergebnis von Viewpoints Fadenkreuz-Pick; Kandidat, um später das anvisierte
+Tile direkt zu inspizieren.
+
 Die Klassen, die aus einzelnen `IsoObject`/Sprite-Typen Dreiecke erzeugen
 („Mesh-Builder“ für Dach/Wand/Kante), sind in keiner öffentlichen Quelle
 benannt. Das Diagnose-Werkzeug erzeugt dafür lokal ein Inventar
