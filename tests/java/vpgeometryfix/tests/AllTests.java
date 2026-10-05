@@ -221,12 +221,20 @@ public final class AllTests {
             eq(null, vpgeometryfix.fix.RoofFallback.apply(new FakeSquare.FakeSprite("roofs_06_0"), new java.util.ArrayList<>()));
             eq(null, vpgeometryfix.fix.RoofFallback.apply(null, null));
             check(vpgeometryfix.fix.RoofFallback.calls() >= 6);
+            long empty = vpgeometryfix.fix.RoofFallback.roofEmpty();
+            long shaped = vpgeometryfix.fix.RoofFallback.roofShaped();
+            vpgeometryfix.fix.RoofFallback.apply(new FakeSquare.FakeSprite("roofs_01_77"), new java.util.ArrayList<>());
+            vpgeometryfix.fix.RoofFallback.apply(new FakeSquare.FakeSprite("roofs_01_0"), java.util.List.of("s"));
+            vpgeometryfix.fix.RoofFallback.apply(new FakeSquare.FakeSprite("walls_01_0"), new java.util.ArrayList<>());
+            eq(empty + 1, vpgeometryfix.fix.RoofFallback.roofEmpty());
+            eq(shaped + 1, vpgeometryfix.fix.RoofFallback.roofShaped());
             check(rf != null);
         });
 
         test("roof fix status, toggle and TILE marker", () -> {
             vpgeometryfix.fix.RoofFallback.setEnabled(true);
             contains(LuaBridge.roofFixStatus(), "Dach-Fix B (Code): AN, Patch aktiv");
+            contains(LuaBridge.roofFixStatus(), "  Daecher: mit Form ");
             contains(LuaBridge.roofFixStatus(), "Dach-Fix A (Datei): nicht installiert");
             contains(LuaBridge.status(), "Dach-Fix B (Code): AN");
             String out = captureStdout(() -> LuaBridge.setRoofFix(false));

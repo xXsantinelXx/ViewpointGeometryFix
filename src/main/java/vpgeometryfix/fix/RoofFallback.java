@@ -40,7 +40,11 @@ public final class RoofFallback {
     private static final ThreadLocal<Boolean> BUSY = new ThreadLocal<>();
     private static final AtomicLong CALLS = new AtomicLong();
     private static final AtomicLong REPLACED = new AtomicLong();
+    private static final AtomicLong ROOF_EMPTY = new AtomicLong();
+    private static final AtomicLong ROOF_SHAPED = new AtomicLong();
     private static final Map<String, Boolean> LOGGED = new ConcurrentHashMap<>();
+    private static final Map<String, Boolean> SEEN = new ConcurrentHashMap<>();
+    private static final int SEEN_MAX = 60;
     private static volatile Method geometryFor;
     private static volatile Object spriteManager;
     private static volatile Method getSprite;
@@ -64,6 +68,15 @@ public final class RoofFallback {
         return REPLACED.get();
     }
 
+    /** Roof sprites ("roofs_*") for which Viewpoint found no shape / a shape. */
+    public static long roofEmpty() {
+        return ROOF_EMPTY.get();
+    }
+
+    public static long roofShaped() {
+        return ROOF_SHAPED.get();
+    }
+
     /** Sibling tileset with shapes for a roof tileset without, or null. */
     public static String siblingTileset(String tileset) {
         if (tileset == null) return null;
@@ -85,15 +98,34 @@ public final class RoofFallback {
      * Advice body. Returns a replacement list, or null to keep Viewpoint's result.
      */
     public static ArrayList<Object> apply(Object sprite, List<?> original) {
-        CALLS.incrementAndGet();
-        if (!enabled || sprite == null || (original != null && !original.isEmpty())) return null;
-        if (Boolean.TRUE.equals(BUSY.get())) return null; // our own nested call for the sibling
+        long n = CALLS.incrementAndGet();
+        if (n == 1 || n == 100 || n == 1000 || n == 5000 || n == 20000 || n == 100000) stats();
+        if (sprite == null || Boolean.TRUE.equals(BUSY.get())) return null; // BUSY: our own nested call
+        boolean empty = original == null || original.isEmpty();
         try {
             Object nameObj = Reflect.call(sprite, "getName");
-            String sibName = siblingSprite(nameObj == null ? null : nameObj.toString());
-            if (sibName == null) return null;
+            String name = nameObj == null ? null : nameObj.toString();
+            if (name == null || !name.startsWith("roofs_")) return null;
+            if (!empty) {
+                ROOF_SHAPED.incrementAndGet();
+                seen(name, "has " + original.size() + " shape(s)");
+                return null;
+            }
+            ROOF_EMPTY.incrementAndGet();
+            String sibName = siblingSprite(name);
+            if (sibName == null) {
+                seen(name, "no shape, no sibling");
+                return null;
+            }
+            if (!enabled) {
+                seen(name, "no shape, fix B off");
+                return null;
+            }
             Object sibSprite = sprite(sibName);
-            if (sibSprite == null) return null;
+            if (sibSprite == null) {
+                seen(name, "no shape, sibling sprite " + sibName + " not found");
+                return null;
+            }
             List<?> shapes;
             BUSY.set(Boolean.TRUE);
             try {
@@ -101,16 +133,33 @@ public final class RoofFallback {
             } finally {
                 BUSY.remove();
             }
-            if (shapes == null || shapes.isEmpty()) return null;
+            if (shapes == null || shapes.isEmpty()) {
+                seen(name, "no shape, sibling " + sibName + " has none either");
+                return null;
+            }
             REPLACED.incrementAndGet();
-            if (LOGGED.putIfAbsent(nameObj.toString(), Boolean.TRUE) == null && LOGGED.size() <= 20) {
-                Log.fileOnly("roof fix B: " + nameObj + " <- " + sibName + " (" + shapes.size() + " shape(s))");
+            if (LOGGED.putIfAbsent(name, Boolean.TRUE) == null && LOGGED.size() <= 20) {
+                Log.fileOnly("roof fix B: " + name + " <- " + sibName + " (" + shapes.size() + " shape(s))");
             }
             return new ArrayList<>(shapes);
         } catch (Throwable t) {
             Log.fileOnly("roof fix B failed: " + t);
             return null;
         }
+    }
+
+    /** One file-log line per distinct roof sprite (capped): which roofs occur and what Viewpoint has for them. */
+    private static void seen(String name, String what) {
+        if (SEEN.size() < SEEN_MAX && SEEN.putIfAbsent(name, Boolean.TRUE) == null) {
+            Log.fileOnly("roof seen: " + name + " - " + what);
+        }
+    }
+
+    /** File-log counter line; logged at a few call counts only, never per frame. */
+    public static void stats() {
+        Log.fileOnly("roof fix B stats: geometryFor calls=" + CALLS.get() + ", roofs with shape=" + ROOF_SHAPED.get()
+                + ", roofs without shape=" + ROOF_EMPTY.get() + ", replaced=" + REPLACED.get()
+                + ", fix B " + (enabled ? "ON" : "OFF"));
     }
 
     static List<?> invokeGeometryFor(Object sprite) throws ReflectiveOperationException {

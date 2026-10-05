@@ -12,7 +12,7 @@ param(
 )
 
 $ErrorActionPreference = 'Continue'
-$Version = '0.3.3'
+$Version = '0.3.4'
 $ModId = 'ViewpointGeometryFix'
 $Pins = @{
     'e1a69eb743ede60b213a0fe7f8b83d4fcab773036d256cc4543a336f3b058a33' = 'projectzomboid.jar 42.21.0'
@@ -443,9 +443,7 @@ foreach ($p in $infos) {
 }
 if ($infos.Count -gt 1) { Finding "Mod mehrfach installiert - alle Kopien ausser $expected loeschen." }
 
-# ---------------------------------------------------------------- console.txt
-Section '6 console.txt (letzter Spielstart)'
-$console = [IO.Path]::Combine($Zomboid, 'console.txt')
+# ---------------------------------------------------------------- own log
 function Add-Block([string]$title, $items, [int]$max, [bool]$fromEnd) {
     Line ''
     Line ("--- $title (" + @($items).Count + ')')
@@ -459,6 +457,41 @@ function Add-Block([string]$title, $items, [int]$max, [bool]$fromEnd) {
         Line $s
     }
 }
+Section '5b VPGeometryFix.log (Dach-Fix, letzter Start)'
+$ownDir = [IO.Path]::Combine($Zomboid, 'VPGeometryFix')
+$cfg = [IO.Path]::Combine($ownDir, 'config.properties')
+if (Test-Path -LiteralPath $cfg) {
+    Line 'config.properties:'
+    Get-Content -LiteralPath $cfg -ErrorAction SilentlyContinue | Where-Object { $_ -and -not $_.StartsWith('#') } | ForEach-Object { Line ('  ' + $_) }
+} else { Line 'config.properties: keine (Standardwerte, Dach-Fix B an)' }
+$ownLog = [IO.Path]::Combine($ownDir, 'VPGeometryFix.log')
+$roofLines = @()
+if (-not (Test-Path -LiteralPath $ownLog)) {
+    Line "Nicht vorhanden: $ownLog"
+} else {
+    $logAll = @(Get-Content -LiteralPath $ownLog -ErrorAction SilentlyContinue)
+    $start = 0
+    for ($i = $logAll.Count - 1; $i -ge 0; $i--) {
+        if ($logAll[$i] -like '*Java component loaded*') { $start = $i; break }
+    }
+    $session = @()
+    if ($logAll.Count -gt 0) { $session = @($logAll[$start..($logAll.Count - 1)]) }
+    Line ("Datei: $ownLog, letzter Start ab Zeile {0}, geaendert {1}" -f ($start + 1), (Get-Item -LiteralPath $ownLog).LastWriteTime)
+    $roofLines = @($session | Where-Object { $_ -match 'roof|Java component loaded' })
+    Add-Block 'Dach-Zeilen' $roofLines 120 $false
+    $stats = @($session | Where-Object { $_ -like '*roof fix B stats*' })
+    $seenEmpty = @($session | Where-Object { $_ -like '*roof seen:*no shape*' })
+    if ($stats.Count -eq 0) {
+        Finding 'VPGeometryFix.log hat keine Dach-Statistik: der Patch auf TileMeshes.geometryFor wurde in diesem Start nie aufgerufen (oder die Mod ist aelter als 0.2.1). Mit Viewpoint in die Naehe von Haeusern gehen und den Bericht danach erneut erzeugen.'
+    } elseif (@($session | Where-Object { $_ -like '*roof fix B: * <- *' }).Count -eq 0) {
+        $ts = @($seenEmpty | ForEach-Object { if ($_ -match 'roof seen: (roofs_.+?)_\d+ ') { $Matches[1] } } | Sort-Object -Unique)
+        Finding ('Dach-Fix B hat nichts ersetzt. Dach-Tilesets ohne Form, die Viewpoint wirklich angefragt hat: ' + ($ts -join ', ') + ' (Details Abschnitt 5b).')
+    }
+}
+
+# ---------------------------------------------------------------- console.txt
+Section '6 console.txt (letzter Spielstart)'
+$console = [IO.Path]::Combine($Zomboid, 'console.txt')
 if (-not (Test-Path -LiteralPath $console)) {
     Line "Nicht vorhanden: $console"
     Finding 'console.txt fehlt - Spiel einmal starten und bis ins Hauptmenue laufen lassen.'
