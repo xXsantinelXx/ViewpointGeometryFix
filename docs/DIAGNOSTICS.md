@@ -3,11 +3,11 @@
 ## Zuerst: VPGF Doctor (außerhalb des Spiels)
 
 Wenn im Spiel nichts zu sehen ist, `VPGF-Doctor.bat` aus
-`build/dist/VPGF-Doctor-<version>.zip` starten (siehe README). Der Bericht
+`build/dist/VPGF-Doctor.zip` starten (siehe README; PowerShell, kein Java nötig). Der Bericht
 zeigt, ob das Spiel die Mod überhaupt lädt, ob ZombieBuddy aktiv ist und
 welche Viewpoint-Klassen für Geometrie in Frage kommen – ganz ohne Tasten,
-UI oder ZombieBuddy. Die Klassenliste stammt direkt aus dem JAR
-(Klassenformat nach JVMS Kap. 4, kein Dekompilieren).
+UI oder ZombieBuddy. Die Klassenliste sind nur die Eintragsnamen im
+Viewpoint-JAR (ZIP-Verzeichnis, kein Dekompilieren).
 
 ## Ist die Mod aktiv?
 

@@ -37,13 +37,12 @@ jar --create --date="$STAMP" --file "$MOD/42/media/java/client/ViewpointGeometry
     --manifest "$OUT/MANIFEST.MF" -C "$OUT/classes" .
 cp "$ROOT/LICENSE" "$MOD/LICENSE.txt"
 
-echo "[build] VPGF Doctor (standalone checker, runs outside the game)"
-mkdir -p "$OUT/doctor-classes" "$OUT/doctor/VPGF-Doctor"
-javac --release 17 -Xlint:all -Werror -d "$OUT/doctor-classes" $(find "$ROOT/src/doctor/java" -name '*.java')
-printf 'Main-Class: vpgeometryfix.doctor.Doctor\nImplementation-Version: %s\n' "$VERSION" > "$OUT/DOCTOR.MF"
-jar --create --date="$STAMP" --file "$OUT/doctor/VPGF-Doctor/VPGF-Doctor.jar" --manifest "$OUT/DOCTOR.MF" -C "$OUT/doctor-classes" .
-# Windows batch files need CRLF line endings
-sed 's/\r*$/\r/' "$ROOT/resources/doctor/VPGF-Doctor.bat" > "$OUT/doctor/VPGF-Doctor/VPGF-Doctor.bat"
+echo "[build] VPGF Doctor (PowerShell, runs outside the game)"
+mkdir -p "$OUT/doctor/VPGF-Doctor"
+# Windows script files need CRLF line endings
+for f in VPGF-Doctor.bat VPGF-Doctor.ps1; do
+  sed 's/\r*$/\r/' "$ROOT/resources/doctor/$f" > "$OUT/doctor/VPGF-Doctor/$f"
+done
 
 echo "[build] zip"
 ZIP="$DIST/ViewpointGeometryFix-$VERSION.zip"
@@ -62,7 +61,7 @@ with zipfile.ZipFile(dst, "w", zipfile.ZIP_DEFLATED) as z:
             with open(p, "rb") as fh:
                 z.writestr(info, fh.read())
 PY
-DOCTOR_ZIP="$DIST/VPGF-Doctor-$VERSION.zip"
+DOCTOR_ZIP="$DIST/VPGF-Doctor.zip"
 rm -f "$DIST"/VPGF-Doctor-*.zip
 python3 - "$OUT/doctor" "$DOCTOR_ZIP" <<'PY'
 import os, sys, zipfile

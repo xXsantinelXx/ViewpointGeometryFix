@@ -51,12 +51,13 @@ optional `config.properties`).
 
 ## VPGF Doctor (außerhalb des Spiels)
 
-`src/doctor/java/vpgeometryfix/doctor/` → `VPGF-Doctor.jar` + `.bat`. Nur
-lesend; prüft Steam-Bibliotheken, `projectzomboid.jar` (SHA-256),
-`ProjectZomboid64.json` (`-javaagent`), ZombieBuddy, Viewpoint (mod.info,
-JAR-SHA-256, Klassenliste per eigenem Class-File-Leser), die Installation
-dieser Mod und `console.txt`. Unabhängig von Mod-Laden, ZombieBuddy und UI –
-die verlässlichste Datenquelle, solange In-Game-Rückmeldung fehlt.
+`resources/doctor/VPGF-Doctor.ps1` + `.bat` → `build/dist/VPGF-Doctor.zip`.
+Windows-PowerShell-5.1-kompatibel, kein Java. Nur lesend; findet Steam per
+Registry/`libraryfolders.vdf`/feste Laufwerke, prüft `projectzomboid.jar`
+(SHA-256), `-javaagent` in `ProjectZomboid64.json`, ZombieBuddy, Viewpoint
+(mod.info, JAR-SHA-256, Klassennamen aus dem JAR-Verzeichnis), die
+Installation dieser Mod und `console.txt`. Unabhängig von Mod-Laden,
+ZombieBuddy und UI. Test: `tests/doctor/test_doctor_ps1.py` (PowerShell 7).
 
 ## Eingriffspunkte für den späteren Fix
 

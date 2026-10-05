@@ -1,0 +1,284 @@
+<#
+  VPGF Doctor - prueft die Installation ausserhalb des Spiels. Nur lesend.
+  Braucht kein Java: laeuft mit der in Windows enthaltenen PowerShell (5.1+).
+
+  Start: VPGF-Doctor.bat doppelklicken.
+  Optional: VPGF-Doctor.bat -SteamLib "D:\SteamLibrary" -Zomboid "C:\Users\Name\Zomboid"
+#>
+param(
+    [string[]]$SteamLib = @(),
+    [string]$Zomboid = "",
+    [string]$Out = ""
+)
+
+$ErrorActionPreference = 'Continue'
+$Version = '0.2.0'
+$ModId = 'ViewpointGeometryFix'
+$Pins = @{
+    'e1a69eb743ede60b213a0fe7f8b83d4fcab773036d256cc4543a336f3b058a33' = 'projectzomboid.jar 42.21.0'
+    '94fedda302ab6c17ba1b38495789e4c9781d52823fb8204214c85402e3cab41f' = 'Viewpoint 0.1.5a-hotfix'
+    '6dd95cedce60f03bf8b8cefd0d19eb156230e0d54bffa07de9da5212a06c7be6' = 'ZombieBuddy 2.3.2 (original)'
+    'dd13e6e06e64be0e832a4f13508c6872de36c9c7b2290023c5884a7f74467283' = 'ZombieBuddy 2.3.2 (B42.21 temporary fix)'
+}
+$Keywords = @('render', 'cull', 'visib', 'mesh', 'vertex', 'model', 'roof', 'wall', 'tile', 'sprite', 'chunk',
+    'room', 'floor', 'shell', 'far', 'pick', 'building', 'geometry', 'cutaway', 'batch', 'scene', 'world',
+    'occlu', 'stair', 'depth', 'bake')
+
+$script:Report = New-Object System.Collections.Generic.List[string]
+$script:Findings = New-Object System.Collections.Generic.List[string]
+
+function Line([string]$s) { $script:Report.Add($s) }
+function Section([string]$t) { $script:Report.Add(''); $script:Report.Add("=== $t ==="); Write-Host "=== $t" }
+function Finding([string]$s) { $script:Findings.Add($s) }
+
+function Read-ModInfo([string]$path) {
+    $h = @{}
+    if (-not (Test-Path -LiteralPath $path -PathType Leaf)) { return $null }
+    foreach ($raw in (Get-Content -LiteralPath $path -ErrorAction SilentlyContinue)) {
+        $l = $raw.Trim()
+        $eq = $l.IndexOf('=')
+        if ($l.StartsWith('#') -or $eq -le 0) { continue }
+        $k = $l.Substring(0, $eq).Trim()
+        if (-not $h.ContainsKey($k)) { $h[$k] = $l.Substring($eq + 1).Trim() }
+    }
+    return $h
+}
+
+function Clean-Id($id) { if ($null -eq $id) { return '' } return ($id -replace '\\', '').Trim() }
+
+function Describe-Jar([string]$path) {
+    if (-not (Test-Path -LiteralPath $path -PathType Leaf)) { return 'FEHLT' }
+    $sha = (Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash.ToLower()
+    $label = $Pins[$sha]
+    if (-not $label) { $label = 'kein auditierter Build' }
+    return ('sha256 {0}... -> {1}' -f $sha.Substring(0, 16), $label)
+}
+
+function Get-SteamLibraries {
+    $roots = New-Object System.Collections.Generic.List[string]
+    foreach ($key in @('HKCU:\Software\Valve\Steam', 'HKLM:\SOFTWARE\WOW6432Node\Valve\Steam', 'HKLM:\SOFTWARE\Valve\Steam')) {
+        try {
+            $p = Get-ItemProperty -Path $key -ErrorAction Stop
+            foreach ($v in @($p.SteamPath, $p.InstallPath)) { if ($v) { $roots.Add(($v -replace '/', '\')) } }
+        } catch { }
+    }
+    $drives = @()
+    try { $drives = @([IO.DriveInfo]::GetDrives() | Where-Object { $_.IsReady -and $_.DriveType -eq 'Fixed' } | ForEach-Object { $_.RootDirectory.FullName }) } catch { }
+    foreach ($d in $drives) {
+        foreach ($sub in @('SteamLibrary', 'Steam', 'Games\Steam', 'Games\SteamLibrary', 'Program Files (x86)\Steam', 'Program Files\Steam')) {
+            $roots.Add([IO.Path]::Combine($d, $sub))
+        }
+    }
+    $libs = New-Object System.Collections.Generic.List[string]
+    foreach ($r in $roots) {
+        if (-not (Test-Path -LiteralPath ([IO.Path]::Combine($r, 'steamapps')))) { continue }
+        if (-not $libs.Contains($r)) { $libs.Add($r) }
+        $vdf = [IO.Path]::Combine($r, 'steamapps', 'libraryfolders.vdf')
+        if (Test-Path -LiteralPath $vdf) {
+            foreach ($m in [regex]::Matches((Get-Content -LiteralPath $vdf -Raw), '"path"\s+"([^"]+)"')) {
+                $lib = $m.Groups[1].Value -replace '\\\\', '\'
+                if ((Test-Path -LiteralPath ([IO.Path]::Combine($lib, 'steamapps'))) -and -not $libs.Contains($lib)) { $libs.Add($lib) }
+            }
+        }
+    }
+    return $libs
+}
+
+function Get-WorkshopMods {
+    $result = New-Object System.Collections.Generic.List[string]
+    foreach ($lib in $script:Libs) {
+        $ws = [IO.Path]::Combine($lib, 'steamapps', 'workshop', 'content', '108600')
+        if (-not (Test-Path -LiteralPath $ws)) { continue }
+        Get-ChildItem -LiteralPath $ws -Recurse -Depth 6 -Filter 'mod.info' -File -ErrorAction SilentlyContinue |
+            ForEach-Object { $result.Add($_.DirectoryName) }
+    }
+    return $result
+}
+
+function Get-Jars([string]$dir) {
+    return @(Get-ChildItem -LiteralPath $dir -Recurse -Depth 8 -Filter '*.jar' -File -ErrorAction SilentlyContinue | Sort-Object FullName)
+}
+
+# ---------------------------------------------------------------- setup
+if (-not $Zomboid) { $Zomboid = [IO.Path]::Combine($env:USERPROFILE, 'Zomboid') }
+if (-not $Out) { $Out = [IO.Path]::Combine((Get-Location).Path, 'VPGF-Report.txt') }
+if ($SteamLib.Count -gt 0) { $script:Libs = $SteamLib } else { $script:Libs = Get-SteamLibraries }
+$workshop = Get-WorkshopMods
+
+Line ("VPGF Doctor $Version - " + (Get-Date -Format 'yyyy-MM-dd HH:mm:ss'))
+Line 'Nur lesend. Diesen Bericht an den Entwickler schicken (ohne VPGF-Viewpoint-Classes.txt).'
+
+Section '1 Pfade'
+$zState = ''
+if (-not (Test-Path -LiteralPath $Zomboid)) { $zState = '  (FEHLT)' }
+Line "Zomboid-Benutzerordner: $Zomboid$zState"
+foreach ($l in $script:Libs) { Line "Steam-Bibliothek: $l" }
+Line ("PowerShell: " + $PSVersionTable.PSVersion.ToString())
+if ($script:Libs.Count -eq 0) { Finding 'Keine Steam-Bibliothek gefunden. Start mit: VPGF-Doctor.bat -SteamLib "D:\SteamLibrary"' }
+
+# ---------------------------------------------------------------- game
+Section '2 Project Zomboid'
+$pz = $null
+foreach ($l in $script:Libs) {
+    $cand = [IO.Path]::Combine($l, 'steamapps', 'common', 'ProjectZomboid')
+    if (Test-Path -LiteralPath $cand) { $pz = $cand; break }
+}
+if (-not $pz) {
+    Line 'Installation nicht gefunden.'
+    Finding 'Project Zomboid nicht gefunden - Steam-Bibliothek mit -SteamLib angeben.'
+} else {
+    Line "Installation: $pz"
+    Line ('projectzomboid.jar: ' + (Describe-Jar ([IO.Path]::Combine($pz, 'projectzomboid.jar'))))
+    $agentFound = $false
+    foreach ($json in @('ProjectZomboid64.json', 'ProjectZomboid64ShowConsole.json')) {
+        $f = [IO.Path]::Combine($pz, $json)
+        if (-not (Test-Path -LiteralPath $f)) { continue }
+        $lines = @(Get-Content -LiteralPath $f | Where-Object { $_ -match 'javaagent' })
+        if ($lines.Count -gt 0) { $agentFound = $true; Line "${json}: javaagent eingetragen"; $lines | ForEach-Object { Line ('    ' + $_.Trim()) } }
+        else { Line "${json}: javaagent NICHT eingetragen" }
+    }
+    if (-not $agentFound) {
+        Finding 'Kein -javaagent in ProjectZomboid64.json: ZombieBuddy ist nicht installiert/aktiv. Ohne ZombieBuddy laedt kein Java-Teil (weder Viewpoint noch diese Mod). ZombieBuddy-Installer erneut ausfuehren.'
+    }
+}
+
+# ---------------------------------------------------------------- zombiebuddy
+Section '3 ZombieBuddy'
+$zbJars = New-Object System.Collections.Generic.List[string]
+if ($pz -and (Test-Path -LiteralPath ([IO.Path]::Combine($pz, 'ZombieBuddy.jar')))) { $zbJars.Add(([IO.Path]::Combine($pz, 'ZombieBuddy.jar'))) }
+foreach ($m in $workshop) {
+    $mi = Read-ModInfo ([IO.Path]::Combine($m, 'mod.info'))
+    if ($mi -and (Clean-Id $mi['id']) -eq 'ZombieBuddy') {
+        Line ("Workshop-Mod: $m (modversion " + $mi['modversion'] + ')')
+        Get-Jars $m | ForEach-Object { $zbJars.Add($_.FullName) }
+    }
+}
+if ($zbJars.Count -eq 0) { Line 'ZombieBuddy.jar nicht gefunden.'; Finding 'ZombieBuddy nicht gefunden.' }
+foreach ($j in $zbJars) { Line ("$j : " + (Describe-Jar $j)) }
+
+# ---------------------------------------------------------------- viewpoint
+Section '4 Viewpoint'
+$classOut = [IO.Path]::Combine((Split-Path -Parent ([IO.Path]::GetFullPath($Out))), 'VPGF-Viewpoint-Classes.txt')
+$vpFound = $false
+foreach ($m in $workshop) {
+    $mi = Read-ModInfo ([IO.Path]::Combine($m, 'mod.info'))
+    if (-not $mi) { continue }
+    $id = Clean-Id $mi['id']
+    if ($id -notmatch 'viewpoint' -or $id -eq $ModId) { continue }
+    $vpFound = $true
+    Line ("Mod: id=$id name=" + $mi['name'] + ' modversion=' + $mi['modversion'])
+    Line "    Ordner: $m"
+    Line ('    javaJarFile=' + $mi['javaJarFile'] + ' javaPkgName=' + $mi['javaPkgName'] + ' require=' + $mi['require'])
+    foreach ($jar in (Get-Jars $m)) {
+        Line ('    ' + $jar.FullName.Substring($m.Length).TrimStart('\', '/') + ': ' + (Describe-Jar $jar.FullName))
+        if ($id -ne 'Viewpoint') { continue }
+        try {
+            Add-Type -AssemblyName System.IO.Compression.FileSystem
+            $zip = [System.IO.Compression.ZipFile]::OpenRead($jar.FullName)
+            $names = @($zip.Entries | Where-Object { $_.FullName.EndsWith('.class') } |
+                ForEach-Object { $_.FullName.Substring(0, $_.FullName.Length - 6).Replace('/', '.') } | Sort-Object)
+            $zip.Dispose()
+            $hits = @($names | Where-Object { $n = $_.ToLower(); @($Keywords | Where-Object { $n.Contains($_) }).Count -gt 0 })
+            Line ("    Klassen gesamt: {0}, davon mit Geometrie-/Render-Stichwort: {1}" -f $names.Count, $hits.Count)
+            $hits | Where-Object { $_ -notmatch '\$' } | ForEach-Object { Line "      $_" }
+            $names | Set-Content -LiteralPath $classOut -Encoding UTF8
+            Line "    Alle Klassennamen: $classOut"
+        } catch {
+            Line ('    Klassen nicht lesbar: ' + $_.Exception.Message)
+        }
+    }
+}
+if (-not $vpFound) { Line 'Keine Viewpoint-Mod im Workshop-Ordner gefunden.'; Finding 'Viewpoint nicht gefunden (nur Workshop-Ordner durchsucht).' }
+
+# ---------------------------------------------------------------- this mod
+Section '5 ViewpointGeometryFix (diese Mod)'
+$mods = [IO.Path]::Combine($Zomboid, 'mods')
+$expected = [IO.Path]::Combine($mods, $ModId, '42', 'mod.info')
+$infos = New-Object System.Collections.Generic.List[string]
+if (Test-Path -LiteralPath $mods) {
+    Get-ChildItem -LiteralPath $mods -Recurse -Depth 6 -Filter 'mod.info' -File -ErrorAction SilentlyContinue | ForEach-Object {
+        $mi = Read-ModInfo $_.FullName
+        if ($mi -and (Clean-Id $mi['id']) -eq $ModId) { $infos.Add($_.FullName) }
+    }
+} else { Line "Ordner fehlt: $mods" }
+foreach ($m in $workshop) {
+    $mi = Read-ModInfo ([IO.Path]::Combine($m, 'mod.info'))
+    if ($mi -and (Clean-Id $mi['id']) -eq $ModId) { $infos.Add(([IO.Path]::Combine($m, 'mod.info'))) }
+}
+if ($infos.Count -eq 0) {
+    Line 'Nicht installiert.'
+    Finding "Mod nicht gefunden. Erwartet: $expected"
+}
+foreach ($p in $infos) {
+    $mi = Read-ModInfo $p
+    $dir = Split-Path -Parent $p
+    Line ("mod.info: $p (modversion " + $mi['modversion'] + ')')
+    $jarRel = $mi['javaJarFile']
+    if ($jarRel) {
+        $jar = [IO.Path]::Combine($dir, $jarRel)
+        if (Test-Path -LiteralPath $jar) { Line '    JAR: vorhanden' } else { Line "    JAR: FEHLT ($jar)" }
+    }
+    $lua = [IO.Path]::Combine($dir, 'media', 'lua', 'client', 'VPGeometryFix_Main.lua')
+    if (Test-Path -LiteralPath $lua) { Line '    Lua: vorhanden' } else { Line "    Lua: FEHLT ($lua)"; Finding 'Lua-Datei der Mod fehlt - ZIP neu entpacken.' }
+    $common = [IO.Path]::Combine((Split-Path -Parent $dir), 'common')
+    if (Test-Path -LiteralPath $common) { Line '    common-Ordner: vorhanden' } else { Line '    common-Ordner: FEHLT' }
+    if (($p -ne $expected) -and $p.StartsWith($mods)) { Finding "Mod liegt an falscher Stelle: $p - richtig waere $expected" }
+}
+if ($infos.Count -gt 1) { Finding "Mod mehrfach installiert - alle Kopien ausser $expected loeschen." }
+
+# ---------------------------------------------------------------- console.txt
+Section '6 console.txt (letzter Spielstart)'
+$console = [IO.Path]::Combine($Zomboid, 'console.txt')
+if (-not (Test-Path -LiteralPath $console)) {
+    Line "Nicht vorhanden: $console"
+    Finding 'console.txt fehlt - Spiel einmal starten und bis ins Hauptmenue laufen lassen.'
+} else {
+    $all = @(Get-Content -LiteralPath $console -ErrorAction SilentlyContinue)
+    Line ("Datei: $console, {0} Zeilen, geaendert {1}" -f $all.Count, (Get-Item -LiteralPath $console).LastWriteTime)
+    $relevant = '(?i)(vpgeometryfix|zombiebuddy|\[zb|viewpoint|javaagent|loading mod|mod failed)'
+    $errorRx = '(?i)(exception|error|stack trace|attempted index|non-table)'
+    $picked = New-Object System.Collections.Generic.List[string]
+    $errors = 0
+    for ($i = 0; $i -lt $all.Count; $i++) {
+        $l = [string]$all[$i]
+        if ($l -match $errorRx) { $errors++ }
+        if ($l -match $relevant) {
+            $picked.Add(('{0}: {1}' -f ($i + 1), $l))
+            for ($k = $i + 1; $k -lt [Math]::Min($all.Count, $i + 4); $k++) {
+                if ([string]$all[$k] -match $errorRx) { $picked.Add(('{0}: {1}' -f ($k + 1), $all[$k])) }
+            }
+        }
+    }
+    $text = $all -join "`n"
+    $luaLoaded = $text.Contains('[VPGeometryFix] Lua loaded')
+    $startBlock = $text.Contains('[VPGeometryFix] Loaded')
+    $modSeen = $text.Contains($ModId)
+    $zbSeen = ($text -match '(?i)zombiebuddy') -or $text.Contains('[ZB')
+    $vpSeen = $text -match '(?i)viewpoint'
+    function JaNein($b) { if ($b) { 'ja' } else { 'NEIN' } }
+    Line ('Mod-ID erwaehnt: {0}, Mod-Lua geladen: {1}, Startblock: {2}, ZombieBuddy-Zeilen: {3}, Viewpoint-Zeilen: {4}, Fehlerzeilen gesamt: {5}' -f `
+        (JaNein $modSeen), (JaNein $luaLoaded), (JaNein $startBlock), (JaNein $zbSeen), (JaNein $vpSeen), $errors)
+    Line ''
+    $unique = @($picked | Select-Object -Unique)
+    $from = [Math]::Max(0, $unique.Count - 120)
+    if ($from -gt 0) { Line "($from aeltere relevante Zeilen ausgelassen)" }
+    for ($i = $from; $i -lt $unique.Count; $i++) {
+        $s = $unique[$i]
+        if ($s.Length -gt 400) { $s = $s.Substring(0, 400) + ' ...' }
+        Line $s
+    }
+    if (-not $modSeen) {
+        Finding 'console.txt erwaehnt ViewpointGeometryFix nicht: das Spiel hat die Mod NICHT geladen. Im Hauptmenue unter Mods aktivieren (B42: auch in der Mod-Auswahl des Spielstands) und Ordner pruefen (Abschnitt 5).'
+    } elseif (-not $luaLoaded) {
+        Finding 'Mod wird erwaehnt, aber ihre Lua-Datei lief nicht (keine Zeile "Lua loaded") - siehe Fehlerzeilen in Abschnitt 6.'
+    }
+    if (-not $zbSeen) { Finding 'Keine ZombieBuddy-Zeilen in console.txt: ZombieBuddy laeuft nicht (Abschnitt 2/3).' }
+}
+
+Section 'ERGEBNIS'
+if ($script:Findings.Count -eq 0) { Line 'Keine Installationsprobleme gefunden.' }
+foreach ($f in $script:Findings) { Line "* $f" }
+
+$script:Report | Set-Content -LiteralPath $Out -Encoding UTF8
+Write-Host ''
+Write-Host "Bericht geschrieben: $Out"
