@@ -54,8 +54,21 @@ with tempfile.TemporaryDirectory() as t:
             z.write(f, f.relative_to(t / "fxc").as_posix())
     (pz / "media/tileGeometry").mkdir(parents=True)
     (pz / "media/tileGeometry/roofs_01.txt").write_text("x" * 3000)
-    (pz / "media/tileGeometry.txt").write_text("VERSION = 1,\n" + "\n".join(f"line{i}" for i in range(50))
-        + "\ntile\n{\n  tileset = roofs_01,\n  index = 12,\n  polygon { points = 0 0 1 1 }\n}\nfoo roofs_02_3\n")
+    (pz / "media/tileGeometry.txt").write_text("\n".join(
+        ["tileGeometry", "{", "    VERSION = 2,"] + [f"    // filler {i}" for i in range(45)] + [
+        "    tileset", "    {", "        name = furniture_01,",
+        "        tile", "        {", "            xy = 0x0,", "            box", "            {", "            }", "        }",
+        "    }",
+        "    tileset", "    {", "        name = roofs_01,",
+        "        /* roofs_01_0 */", "        tile", "        {", "            xy = 0x0,",
+        "            properties", "            {", "                OpaquePixelsOnly = true,", "            }", "        }",
+        "        /* roofs_01_1 */", "        tile", "        {", "            xy = 1x0,",
+        "            polygon", "            {", "                xy = 0x0 1x1,", "            }",
+        "            box", "            {", "            }", "        }",
+        "    }",
+        "    tileset", "    {", "        name = roofs_02,",
+        "        tile", "        {", "            xy = 0x0,", "        }",
+        "    }", "}"]) + "\n")
     ed = pz / "media/lua/client/DebugUIs/TileGeometryEditor"
     ed.mkdir(parents=True)
     (ed / "TileGeometryEditor.lua").write_text("local a = 1\nfunction X:onSave() getTileGeometry():write(modID) end\nlocal b = 2\n")

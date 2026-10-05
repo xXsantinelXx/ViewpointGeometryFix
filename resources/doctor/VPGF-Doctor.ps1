@@ -12,7 +12,7 @@ param(
 )
 
 $ErrorActionPreference = 'Continue'
-$Version = '0.3.2'
+$Version = '0.3.3'
 $ModId = 'ViewpointGeometryFix'
 $Pins = @{
     'e1a69eb743ede60b213a0fe7f8b83d4fcab773036d256cc4543a336f3b058a33' = 'projectzomboid.jar 42.21.0'
@@ -359,6 +359,37 @@ if ($pz) {
             for ($i = $start; $i -le $end; $i++) { Line ('  ' + $tgLines[$i]) }
             $names = @($roofIdx | ForEach-Object { if ($tgLines[$_] -match '(?i)(roofs_[a-z0-9_]+)') { $Matches[1] } } | Select-Object -Unique)
             Line ('--- verschiedene Dach-Tilesets/Sprites (erste 40 von ' + $names.Count + '): ' + (($names | Select-Object -First 40) -join ', '))
+        }
+        # Statistics: which roof tiles actually carry shapes (box/polygon/cylinder)?
+        $stats = @{}; $tileset = ''; $tileName = ''; $tileStart = -1; $shapes = 0; $example = -1
+        $finish = {
+            if ($tileStart -ge 0 -and $tileset) {
+                if (-not $stats.ContainsKey($tileset)) { $stats[$tileset] = @(0, 0, 0) }
+                $st = $stats[$tileset]; $st[0]++
+                if ($shapes -gt 0) { $st[1]++; $st[2] += $shapes
+                    if ($example -lt 0 -and $tileset -like 'roofs_*') { $script:exampleStart = $tileStart; $example = $tileStart } }
+            }
+        }
+        $script:exampleStart = -1
+        for ($i = 0; $i -lt $tgLines.Count; $i++) {
+            $t = ([string]$tgLines[$i]).Trim()
+            if ($t -eq 'tileset') { . $finish; $tileStart = -1; $tileset = ''; continue }
+            if ($t.StartsWith('name = ') -and $tileStart -lt 0) { $tileset = $t.Substring(7).TrimEnd(',').Trim(); continue }
+            if ($t -eq 'tile') { . $finish; $tileStart = $i; $shapes = 0; continue }
+            if ($t -eq 'box' -or $t -eq 'polygon' -or $t -eq 'cylinder') { $shapes++ }
+        }
+        . $finish
+        $roofSets = @($stats.Keys | Where-Object { $_ -like 'roofs_*' } | Sort-Object)
+        $roofTiles = 0; $roofShaped = 0
+        foreach ($k in $roofSets) { $roofTiles += $stats[$k][0]; $roofShaped += $stats[$k][1] }
+        $allTiles = 0; $allShaped = 0
+        foreach ($k in $stats.Keys) { $allTiles += $stats[$k][0]; $allShaped += $stats[$k][1] }
+        Line ('--- Statistik: alle Tiles {0}, davon mit Form {1}; Dach-Tilesets {2} mit {3} Tiles, davon mit Form {4}' -f $allTiles, $allShaped, $roofSets.Count, $roofTiles, $roofShaped)
+        foreach ($k in $roofSets) { Line ('  {0}: {1} Tiles, {2} mit Form ({3} Formen)' -f $k, $stats[$k][0], $stats[$k][1], $stats[$k][2]) }
+        if ($script:exampleStart -ge 0) {
+            Line '--- Beispiel: erstes Dach-Tile MIT Form'
+            $end = [Math]::Min($tgLines.Count - 1, $script:exampleStart + 45)
+            for ($i = $script:exampleStart - 1; $i -le $end; $i++) { Line ('  ' + $tgLines[$i]) }
         }
     } else { Line 'tileGeometry.txt nicht gefunden.' }
     $editor = [IO.Path]::Combine($pz, 'media', 'lua', 'client', 'DebugUIs', 'TileGeometryEditor')
