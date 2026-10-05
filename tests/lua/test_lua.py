@@ -37,7 +37,7 @@ local function event()
   return e
 end
 Events = { OnGameBoot = event(), OnGameStart = event(), OnKeyPressed = event(), OnTick = event(), OnPostUIDraw = event(),
-  OnFillWorldObjectContextMenu = event() }
+  OnFillWorldObjectContextMenu = event(), OnMainMenuEnter = event() }
 
 MODS = { "\\ZombieBuddy", "\\Viewpoint", "\\ViewpointGeometryFix" }
 function getActivatedMods()
@@ -138,6 +138,9 @@ def fresh(with_java, with_isui=True):
         lua.execute("install_isui()")
     for f in sorted(LUA_DIR.glob("*.lua")):
         lua.execute(f.read_text(encoding="utf-8"))
+    first = list(lua.eval("OUT").values())
+    check(first == ["[VPGeometryFix] Lua loaded 0.1.3-diag"], f"load line: {first}")
+    lua.execute("OUT = {}")
     return lua
 
 
@@ -187,7 +190,7 @@ def t_panel_at_game_start():
     check(len(out(lua)) == 0, f"Java prints the startup block, Lua adds nothing: {out(lua)}")
     lua.execute("BUTTONS[1].target:render()")
     d = drawn(lua)
-    check(d[0] == "Viewpoint Geometry Fix 0.1.2-diag", f"title: {d}")
+    check(d[0] == "Viewpoint Geometry Fix 0.1.3-diag", f"title: {d}")
     check("Viewpoint: erkannt 0.1.5a-hotfix" in d and "Diagnose: AUS" in d, f"status: {d}")
     check(any("Diagnose AN" in t for t in d), f"hint: {d}")
 
@@ -260,6 +263,28 @@ def t_rebind_from_options():
     lua = fresh(True)
     lua.execute('Events.OnGameStart.fire(); BOUND["VPGF Panel"] = 25; Events.OnKeyPressed.fire(25)')
     check(lua.eval("BUTTONS[1].target.inUI") is False, "bound key toggles the panel")
+
+
+def t_main_menu_badge():
+    lua = fresh(False)
+    lua.execute("Events.OnMainMenuEnter.fire(); Events.OnPostUIDraw.fire()")
+    d = list(lua.eval("DRAWN").values())
+    check(any("VPGeometryFix 0.1.3-diag geladen - Java-Teil: NICHT geladen" in t for t in d), f"badge: {d}")
+    lua.execute("Events.OnGameStart.fire()")
+    check(lua.eval("#Events.OnPostUIDraw.list") == 0, "badge removed in game (panel uses ISPanel)")
+
+
+def t_handler_errors_are_reported():
+    lua = fresh(True)
+    lua.execute("getCell = function() error('boom') end; VPGF.setDebug(true); CALLS = {}")
+    lua.execute("Events.OnFillWorldObjectContextMenu.fire(0, nil, {}, false)")  # nil context is ignored
+    lua.execute("""
+      local ctx = { addOption = function() error('menu broken') end }
+      Events.OnFillWorldObjectContextMenu.fire(0, ctx, {}, false)
+      Events.OnFillWorldObjectContextMenu.fire(0, ctx, {}, false)
+    """)
+    errs = [l for l in out(lua) if "ERROR in ContextMenu" in l]
+    check(len(errs) == 1 and "menu broken" in errs[0], f"error reported once: {out(lua)}")
 
 
 def main():

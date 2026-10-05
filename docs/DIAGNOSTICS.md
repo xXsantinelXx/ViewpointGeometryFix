@@ -1,9 +1,16 @@
-# Diagnose-Handbuch (0.1.2-diag)
+# Diagnose-Handbuch (0.1.3-diag)
 
 ## Ist die Mod aktiv?
 
+1. **Hauptmenü:** oben links steht gelb „VPGeometryFix 0.1.3-diag geladen – Java-Teil: OK“
+   (oder „NICHT geladen“, dann lädt ZombieBuddy das JAR nicht).
+2. **console.txt:** erste Zeile der Mod ist `[VPGeometryFix] Lua loaded 0.1.3-diag`.
+   Fehlt sie, wird die Mod gar nicht geladen (Ordnerstruktur / Mod nicht aktiviert).
+   Fehler der Mod erscheinen als `[VPGeometryFix] ERROR in …`.
+3. **Im Spielstand:** das Fenster (unten).
+
 Beim Laden eines Spielstands öffnet sich oben links das Fenster
-**„Viewpoint Geometry Fix 0.1.2-diag“** (verschiebbar, mit X schließbar).
+**„Viewpoint Geometry Fix 0.1.3-diag“** (verschiebbar, mit X schließbar).
 Es zeigt:
 
 ```
