@@ -82,6 +82,9 @@ with tempfile.TemporaryDirectory() as t:
     (good / "mod.info").write_text("id=ViewpointGeometryFix\nmodversion=0.1.3-diag\njavaJarFile=media/java/client/ViewpointGeometryFix.jar\n")
     (good / "media/lua/client/VPGeometryFix_Main.lua").write_text("--")
     (zb / "mods/ViewpointGeometryFix/common").mkdir()
+    (good / "media/tileGeometry.txt").write_text("tileGeometry\n{\n    tileset\n    {\n        name = roofs_02,\n"
+        "        /* roofs_02 xy=0x0 <- roofs_01 (VPGeometryFix) */\n        /* roofs_02 xy=1x0 <- roofs_01 (VPGeometryFix) */\n"
+        "    }\n    tileset\n    {\n        name = roofs_30_02,\n        /* roofs_30_02 xy=0x0 <- roofs_30_01 (VPGeometryFix) */\n    }\n}\n")
     (zb / "console.txt").write_text("\n".join(
         ["LOG : General > [ZB] ZombieBuddy v2.3.4 loading ViewpointGeometryFix.jar",
          "LOG : Lua > [VPGeometryFix] Lua loaded 0.1.3-diag",
@@ -117,7 +120,7 @@ with tempfile.TemporaryDirectory() as t:
                    "Viewpoint-Add-ons im Workshop-Ordner (1): ViewpointCar 1.0",
                    "Klassen gesamt: 6, davon mit Geometrie-/Render-Stichwort: 5",
                    "      viewpoint.render.WorldRenderer", "      viewpoint.world.ChunkWalk",
-                   "    Lua: vorhanden", "    JAR: FEHLT",
+                   "    Lua: vorhanden", "    JAR: FEHLT", "    Dach-Fix A (tileGeometry.txt): installiert, 3 Tiles in 2 Tilesets",
                    "Mod-Lua geladen: ja, Startblock: ja, Java-Teil der Mod: NEIN, ZombieBuddy aktiv: ja, Fehlerzeilen der Mod: 1",
                    "--- Zeilen dieser Mod (6)", "ERROR in OnGameStart: boom", "attempted index: x of non-table",
                    "--- ZombieBuddy (1)", "--- Viewpoint (ohne Leistungsmeldungen) (1)", "[Viewpoint] renderer ready",

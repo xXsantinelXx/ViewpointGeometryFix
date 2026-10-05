@@ -12,7 +12,7 @@ param(
 )
 
 $ErrorActionPreference = 'Continue'
-$Version = '0.3.5'
+$Version = '0.3.6'
 $ModId = 'ViewpointGeometryFix'
 $Pins = @{
     'e1a69eb743ede60b213a0fe7f8b83d4fcab773036d256cc4543a336f3b058a33' = 'projectzomboid.jar 42.21.0'
@@ -439,6 +439,13 @@ foreach ($p in $infos) {
     if (Test-Path -LiteralPath $lua) { Line '    Lua: vorhanden' } else { Line "    Lua: FEHLT ($lua)"; Finding 'Lua-Datei der Mod fehlt - ZIP neu entpacken.' }
     $common = [IO.Path]::Combine((Split-Path -Parent $dir), 'common')
     if (Test-Path -LiteralPath $common) { Line '    common-Ordner: vorhanden' } else { Line '    common-Ordner: FEHLT' }
+    $roofData = [IO.Path]::Combine($dir, 'media', 'tileGeometry.txt')
+    if (Test-Path -LiteralPath $roofData -PathType Leaf) {
+        $rd = @(Get-Content -LiteralPath $roofData -ErrorAction SilentlyContinue)
+        $rdSets = @($rd | Where-Object { $_ -match '^\s*name\s*=\s*(roofs_[^,\s]+)' } | ForEach-Object { $Matches[1] })
+        $rdTiles = @($rd | Where-Object { $_ -like '*(VPGeometryFix)*' }).Count
+        Line ('    Dach-Fix A (tileGeometry.txt): installiert, ' + $rdTiles + ' Tiles in ' + $rdSets.Count + ' Tilesets, geaendert ' + (Get-Item -LiteralPath $roofData).LastWriteTime)
+    } else { Line '    Dach-Fix A (tileGeometry.txt): nicht installiert' }
     if (($p -ne $expected) -and $p.StartsWith($mods)) { Finding "Mod liegt an falscher Stelle: $p - richtig waere $expected" }
 }
 if ($infos.Count -gt 1) { Finding "Mod mehrfach installiert - alle Kopien ausser $expected loeschen." }
