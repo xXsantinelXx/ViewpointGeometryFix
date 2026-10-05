@@ -15,6 +15,7 @@ import vpgeometryfix.diag.Reflect;
 import vpgeometryfix.diag.SquareInspector;
 import vpgeometryfix.diag.ViewpointProbe;
 import vpgeometryfix.fix.RoofFallback;
+import vpgeometryfix.fix.RoofMirror;
 
 /**
  * Global Lua functions. ZombieBuddy registers every public static method
@@ -101,10 +102,12 @@ public final class LuaBridge {
     @LuaMethod(name = "VPGF_roofFixStatus", global = true)
     public static String roofFixStatus() {
         try {
-            String b = "Dach-Fix B (Code): " + (RoofFallback.isEnabled() ? "AN" : "AUS")
+            String b = "Dach-Fix (Code): " + (RoofFallback.isEnabled() ? "AN" : "AUS")
                     + (RoofFallback.calls() > 0 ? ", Patch aktiv (" + RoofFallback.calls() + " Aufrufe)\n"
                         + "  Daecher: mit Form " + RoofFallback.roofShaped() + ", ohne Form " + RoofFallback.roofEmpty()
-                        + ", ersetzt " + RoofFallback.replaced()
+                        + ", ersetzt " + RoofFallback.replaced() + "\n"
+                        + "  Rueckseiten " + RoofFallback.mirrored() + " (Mesh " + RoofMirror.built() + ", Bild "
+                        + RoofMirror.swapped() + "), Platten " + RoofFallback.clipped() + ", Leisten " + RoofFallback.trimmed()
                         : ", Patch noch nicht aufgerufen");
             Path data = roofDataFile();
             String a = "Dach-Fix A (Datei): " + (data != null && java.nio.file.Files.isRegularFile(data)
@@ -122,7 +125,7 @@ public final class LuaBridge {
             RoofFallback.setEnabled(on);
             Config.put("roofFixB", Boolean.toString(on));
             RoofFallback.stats();
-            Log.info("roof fix B: " + (on ? "ON" : "OFF") + " (affects newly built areas; restart for a full effect)");
+            Log.info("roof fix: " + (on ? "ON" : "OFF") + " (affects newly built areas; restart for a full effect)");
         } catch (Throwable t) {
             Log.error("setRoofFix failed", t);
         }

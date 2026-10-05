@@ -5,26 +5,38 @@ Project Zomboid Build 42.21). Ziel ist, falsch, unvollständig, verschoben oder
 gar nicht gerenderte Dächer, Dachkanten, Wände und Objekte zu untersuchen und
 später zu beheben.
 
-**Aktueller Stand: 0.2.3-test – Diagnose + erster, schaltbarer Dach-Fix-Test.**
-Ändert nichts an Gameplay, Savegames, `projectzomboid.jar` oder Viewpoint-Dateien.
+**Aktueller Stand: 0.3.0-test – Dach-Fix (schaltbar) + Diagnose.**
+Ändert nichts an Gameplay, Savegames, `projectzomboid.jar` oder Viewpoint-Dateien;
+alle Korrekturen wirken nur zur Laufzeit in Viewpoints First-Person-Ansicht.
 
-### Dach-Fix (Test, vom Nutzer freigegeben am 2026-10-05)
+### Dach-Fix (vom Nutzer freigegeben am 2026-10-05)
 
-Befund: In `tileGeometry.txt` des Spiels haben nur 84 von 1 426 Dach-Tiles eine
-3D-Form; Viewpoint muss den Rest raten. Der Fix gibt Dach-Tiles ohne Form die
-Form des gleichen Tiles aus dem Schwester-Tileset (`roofs_02…05 ← roofs_01`,
-`roofs_30_02…10 ← roofs_30_01`). Zwei unabhängige Varianten:
+Befund aus den Logs des Nutzers: Viewpoint baut Dächer aus den 3D-Formen, die das
+Spiel nur als Tiefenhilfe für die Iso-Ansicht hat. Dabei
 
-* **B (Code):** ZombieBuddy-Advice auf `viewpoint.world.TileMeshes.geometryFor`
-  – ersetzt nur ein *leeres* Ergebnis. Standard **an**; Schalter „Dach-Fix“ im
-  Fenster oder `roofFixB=false` in `Zomboid\VPGeometryFix\config.properties`.
-  Volle Wirkung nach Neustart des Spiels.
-* **A (Datei):** `VPGF-RoofData.bat` (im Doctor-Zip) schreibt aus *deiner*
-  Spieldatei eine Ergänzung nach `Zomboid\mods\ViewpointGeometryFix\42\media\tileGeometry.txt`.
-  Entfernen: `VPGF-RoofData.bat -Remove`. Ob Spiel/Viewpoint Mod-Geometrie
-  lesen, ist noch unbekannt – genau das wird getestet.
+* fehlt bei steilen Dächern die **hintere Hälfte**: `roofs_*_8…13` haben keine Form
+  (und praktisch keine Grafik, weil sie in der Iso-Ansicht genau auf der Kante stehen),
+* sind die Dachplatten **2 × 2 Tiles** groß (Kreuz am First, hängende Ränder),
+* liegen **Giebelleisten** auf 0,3 dicken senkrechten Platten 0,3 hinter der Giebelwand,
+* leihen sich viele Tiles über `tileDepthTextureAssignments.txt` die Form eines anderen Tiles.
 
-Getestet nur offline (Java-/Lua-/PowerShell-Tests mit Nachbauten), nicht im Spiel.
+Der Fix (Schalter „Dach-Fix“ im Fenster, Standard **an**, volle Wirkung nach Neustart):
+
+1. **Hintere Hälften:** Viewpoint bekommt für `roofs_*_8…13` das gespiegelte Mesh der
+   Vorderhälfte (`roofs_*_0…5`) und zeichnet es mit deren Textur.
+2. **Platten:** auf ihr Tile zugeschnitten.
+3. **Giebelleisten:** dünn in die Giebelebene gelegt.
+4. **Fix B:** leere Dach-Tiles der Farbvarianten bekommen die Form aus `roofs_01`/`roofs_30_01`.
+
+Einzelschalter in `Zomboid\VPGeometryFix\config.properties`: `roofFixB` (alles),
+`roofFixMirror`, `roofFixMesh`, `roofFixClip`, `roofFixTrim`; Zuordnung der hinteren
+Hälften `roofBackMap=8=0z,9=1z,10=2z,11=3x,12=4x,13=5x` (leer = automatisch aus den
+Bildhöhen der Sprites).
+Variante A (`VPGF-RoofData.bat`) brachte nachweislich nichts und kann entfernt werden.
+
+Getestet offline (Java-/Lua-/PowerShell-Tests; Einweben mit dem echten
+ZombieBuddy-2.3.4-PatchEngine gegen Nachbauten der Viewpoint-Signaturen), noch nicht
+im Spiel.
 
 ## Funktionen
 
@@ -71,7 +83,7 @@ Eigenständiges Prüfprogramm, läuft **außerhalb** des Spiels, nur lesend:
 ## Installation (Windows 11)
 
 1. Spiel schließen.
-2. `build/dist/ViewpointGeometryFix-0.2.3-test.zip` nach
+2. `build/dist/ViewpointGeometryFix-0.3.0-test.zip` nach
    `%USERPROFILE%\Zomboid\mods\` entpacken. Ergebnis:
    `%USERPROFILE%\Zomboid\mods\ViewpointGeometryFix\42\mod.info`.
 3. Spiel starten → Mods → **Viewpoint Geometry Fix (Diagnostics)** aktivieren

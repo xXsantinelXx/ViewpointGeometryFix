@@ -25,6 +25,12 @@ public @interface Patch {
 
     @Retention(RetentionPolicy.RUNTIME)
     @Target(ElementType.METHOD)
+    @interface OnEnter {
+        boolean skipOn() default false;
+    }
+
+    @Retention(RetentionPolicy.RUNTIME)
+    @Target(ElementType.METHOD)
     @interface OnExit {}
 
     @Retention(RetentionPolicy.RUNTIME)

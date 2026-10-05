@@ -1,4 +1,4 @@
-# Diagnose-Handbuch (0.2.3-test)
+# Diagnose-Handbuch (0.3.0-test)
 
 ## Zuerst: VPGF Doctor (außerhalb des Spiels)
 
@@ -11,15 +11,15 @@ Viewpoint-JAR (ZIP-Verzeichnis, kein Dekompilieren).
 
 ## Ist die Mod aktiv?
 
-1. **Hauptmenü:** oben links steht gelb „VPGeometryFix 0.2.3-test geladen – Java-Teil: OK“
+1. **Hauptmenü:** oben links steht gelb „VPGeometryFix 0.3.0-test geladen – Java-Teil: OK“
    (oder „NICHT geladen“, dann lädt ZombieBuddy das JAR nicht).
-2. **console.txt:** erste Zeile der Mod ist `[VPGeometryFix] Lua loaded 0.2.3-test`.
+2. **console.txt:** erste Zeile der Mod ist `[VPGeometryFix] Lua loaded 0.3.0-test`.
    Fehlt sie, wird die Mod gar nicht geladen (Ordnerstruktur / Mod nicht aktiviert).
    Fehler der Mod erscheinen als `[VPGeometryFix] ERROR in …`.
 3. **Im Spielstand:** das Fenster (unten).
 
 Beim Laden eines Spielstands öffnet sich oben links das Fenster
-**„Viewpoint Geometry Fix 0.2.3-test“** (verschiebbar, mit X schließbar).
+**„Viewpoint Geometry Fix 0.3.0-test“** (verschiebbar, mit X schließbar).
 Es zeigt:
 
 ```
@@ -84,7 +84,7 @@ Kurzfilter (PowerShell):
 Select-String -Path "$env:USERPROFILE\Zomboid\console.txt" -Pattern '\[VPGeometryFix\]'
 ```
 
-## Dach-Fix testen (0.2.3-test)
+## Dach-Fix testen (0.3.0-test)
 
 1. Spiel starten, Spielstand laden, mit Viewpoint an Häusern vorbeigehen. Fenster:
    ```
@@ -107,7 +107,22 @@ Select-String -Path "$env:USERPROFILE\Zomboid\console.txt" -Pattern '\[VPGeometr
 4. In der TILE-Zeile zeigt `fixB=an<-roofs_01_5`, welches Schwester-Tile verwendet
    wird.
 
-## Dach-Daten (0.2.3-test)
+## Dach-Fix prüfen (0.3.0-test)
+
+Fensterzeilen:
+```
+Dach-Fix (Code): AN, Patch aktiv (N Aufrufe)
+  Daecher: mit Form X, ohne Form Y, ersetzt Z
+  Rueckseiten R (Mesh M, Bild S), Platten P, Leisten L
+```
+R = gespiegelte Formen, M = gespiegelte Meshes, S = Textur-Tausch beim Einbauen,
+P/L = zugeschnittene Platten/Leisten. M = 0 bei R > 0 heißt: der Mesh-Teil lehnt ab
+(Grund in `VPGeometryFix.log`, Zeilen `roof back half: … kept as Viewpoint built it`).
+Ein-/Ausschalten: Knopf „Dach-Fix“ (danach Spiel neu starten). Bild-Größen der
+Dach-Sprites stehen als `roof art: …` im Log (zeigt, ob eine Hälfte Grafik hat).
+Dach-Daten werden ~40 Spielminuten nach dem Laden automatisch einmal geschrieben.
+
+## Dach-Daten (seit 0.2.3-test)
 
 Schaltfläche **Dach-Daten** im Fenster (oder `VPGF.roofData()`): schreibt einmalig
 `…\VPGeometryFix\inspect\roofdata_<Zeit>.txt` – keine Patches, keine Arbeit pro Frame:

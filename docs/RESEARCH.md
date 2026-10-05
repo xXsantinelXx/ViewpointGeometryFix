@@ -313,6 +313,23 @@ einem unabhängigen Prüfer nachgerechnet; widerlegte Teile sind korrigiert.
   sichtbare Grafik und im Spiel keine Form; aus der Ego-Perspektive fehlt dort
   Fläche → weiterer Kandidat für C.
 
+### Update 2026-10-05 (5): Ursache der fehlenden Dachhälften (0.2.3-test, Doctor 0.3.7)
+
+* **Zweite Formquelle bestätigt [V1]:** `media/tileDepthTextureAssignments.txt`
+  (31 673 Zeilen, 4 869 mit `roofs_`) ordnet Tiles einem anderen Tile zu, z. B.
+  `roofs_01_14 = roofs_01_4`, `roofs_01_118 = roofs_01_4`, `roofs_30_08_107 =
+  roofs_30_01_43`, `roofs_accents_30_01_22 = roofs_accents_01_0`. Jede geliehene Form
+  im Log passt dazu. Dass Viewpoint (bzw. das Spiel in `geometryFor`) diese
+  Zuordnung auch für 3D-Formen nutzt, folgt daraus [H, stark].
+* **Hintere Dachhälften ohne Form [V1]:** `roofs_01_0…7` haben Formen,
+  `roofs_01_8…13` keine – ebenso in `roofs_02/03/05/burnt_01`, insgesamt 55 leere
+  Dach-Sprites in einer Sitzung; 8–13 haben auch keinen Eintrag in der
+  Zuordnungsdatei. Deutung [H]: 8–10 = Nordhälfte (Spiegel von 0–2, Unter-/Mitte-/
+  Oberteil), 11–13 = Westhälfte (Spiegel von 3–5); diese Flächen stehen in der
+  Iso-Ansicht genau auf der Kante (Steigung √6/3 = Kante-auf-Winkel) und brauchen dort
+  weder Form noch Grafik.
+* **Fix (0.3.0-test, freigegeben):** siehe ARCHITECTURE.md „Dach-Fix“.
+
 ## 5. Andere B42-Mods, die Rendering/Sichtbarkeit per ZombieBuddy ändern [V1]
 
 * **PeekAView** (MIT): Wand-Cutaway-Reichweite, Baum-Fade, Treppenansicht – patcht

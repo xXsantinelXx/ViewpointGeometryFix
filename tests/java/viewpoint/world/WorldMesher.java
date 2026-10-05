@@ -12,6 +12,15 @@ public final class WorldMesher {
         return false;
     }
 
+    /** Atlas mapping per texture (Viewpoint: static float[] mapping(Texture)). */
+    static float[] mapping(zombie.core.textures.Texture t) {
+        return t.name.endsWith("_8") ? new float[] {1, 2} : new float[] {3, 4};
+    }
+
+    static float[] textureMapping(zombie.core.textures.Texture t) {
+        return new float[] {9, 9};
+    }
+
     static boolean hasModel(String unrelatedOverload) {
         return true;
     }

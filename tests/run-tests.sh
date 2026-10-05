@@ -7,7 +7,7 @@ OUT="$ROOT/build/out"
 [[ -d "$OUT/classes" ]] || { echo "run build/build.sh first" >&2; exit 1; }
 rm -rf "$OUT/test-classes"; mkdir -p "$OUT/test-classes"
 javac --release 17 -cp "$OUT/classes:$OUT/stubs" -d "$OUT/test-classes" $(find "$ROOT/tests/java" -name '*.java')
-java -cp "$OUT/classes:$OUT/stubs:$OUT/test-classes" vpgeometryfix.tests.AllTests
+java -cp "$OUT/classes:$OUT/test-classes:$OUT/stubs" vpgeometryfix.tests.AllTests
 python3 "$ROOT/tests/lua/test_lua.py"
 python3 "$ROOT/tests/doctor/test_doctor_ps1.py"
 python3 "$ROOT/tests/doctor/test_roofdata_ps1.py"

@@ -51,6 +51,36 @@ Ausgabe: Konsole (`console.txt`) mit Präfix `[VPGeometryFix]` sowie
 `<Zomboid>/VPGeometryFix/` (`VPGeometryFix.log`, `inspect/`, `inventory/`,
 optional `config.properties`).
 
+## Dach-Fix (0.3.0-test, vom Nutzer freigegeben)
+
+Alle Teile laufen nur während Viewpoint Meshes baut (Ladephase/neue Chunks),
+nie pro Frame, und arbeiten auf Kopien; jeder Fehler lässt Viewpoints Ergebnis stehen.
+
+| Teil | Eingriff [Signatur V1] | Wirkung |
+|---|---|---|
+| Fix B | `Patch_RoofGeometry` → `TileMeshes.geometryFor(IsoSprite)` OnExit | leere Farbvarianten bekommen die Schwester-Form |
+| Platten | dito, `RoofShapes.clipSlab` | 2×2-Platten auf ±0,5 × ±0,5/cos(Neigung) zugeschnitten |
+| Giebelleisten | dito, `RoofShapes.thinCard` | 0,3-Platte → 0,04-Karte in der Giebelebene (z/x = −0,5) |
+| Hintere Hälften (Form) | dito, `RoofShapes.mirror` | leere `roofs_*_8…13` ← gespiegelte Vorderhälfte (Rückfall) |
+| Hintere Hälften (Mesh) | `Patch_TileMeshCreate` → `TileMeshes.create(IsoSprite, Texture, IsoSprite)` OnExit | Mesh der Vorderhälfte bauen, Positionen/Normalen spiegeln, Dreiecke umdrehen |
+| Hintere Hälften (Bild) | `Patch_Recipe{Place,PlaceFace,PlaceCaps,Placed}` → `Recipe.place*` OnEnter | für diese Meshes Seite (`TextureID`) und Abbildung der Vorder-Textur einsetzen |
+
+`TileMesh`/`TextureID` sind Compile-Stubs (ByteBuddy braucht für schreibbare
+Rückgabe/Argumente den exakten Typ). ZombieBuddy 2.3.4 behandelt beim
+Methoden-Abgleich einen Array-Parameter (`float[] map`) wie seinen Elementtyp und
+würde die `Recipe.place*`-Advices deshalb nie anwenden [V1, PatchEngine-Quelle,
+MIT]; jede `Patch_Recipe*`-Klasse hat daher zusätzlich ein leeres OnExit mit
+abgleichbarer Signatur. Offline geprüft mit dem unveränderten ZombieBuddy-2.3.4-
+`PatchEngine` (ByteBuddy 1.18.8) gegen Nachbauten mit den echten Signaturen:
+Mesh gespiegelt, alle vier `place*` tauschen die Textur, fremde Meshes unberührt.
+
+Sicherungen: Der Mesh-Teil greift nur, wo der Form-Teil die leere hintere Hälfte
+gefüllt hat; das Vorder-Mesh muss auf die Tile-Mitte zentriert sein; gleiche Länge
+und Eckenzahl wie Viewpoints eigene Meshes; schwache Identitäts-Schlüssel (kein
+Speicherleck). Die Zuordnung 8–13 → 0–5 wird je Tileset aus der Höhe der Bild-
+streifen bestimmt (sonst Standard), Tiles mit Zuordnung auf 8–13 in
+`tileDepthTextureAssignments.txt` (z. B. 67 → 11) werden mitbehandelt.
+
 ## VPGF Doctor (außerhalb des Spiels)
 
 `resources/doctor/VPGF-Doctor.ps1` + `.bat` → `build/dist/VPGF-Doctor.zip`.

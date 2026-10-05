@@ -21,7 +21,7 @@
 ]]
 
 VPGF = VPGF or {}
-VPGF.VERSION = "0.2.3-test"
+VPGF.VERSION = "0.3.0-test"
 VPGF.PREFIX = "[VPGeometryFix] "
 -- First line in console.txt: proves the Lua file was loaded at all.
 print(VPGF.PREFIX .. "Lua loaded " .. VPGF.VERSION)
@@ -267,7 +267,7 @@ end
 function VPGF.setRoofFix(on)
     if not VPGF.java() then setResults({ "Dach-Fix braucht den Java-Teil (ZombieBuddy)" }) return end
     try(VPGF_setRoofFix, on and true or false)
-    setResults({ "Dach-Fix B " .. (on and "AN" or "AUS") .. " - wirkt fuer neu aufgebaute Bereiche,",
+    setResults({ "Dach-Fix " .. (on and "AN" or "AUS") .. " - wirkt fuer neu aufgebaute Bereiche,",
         "fuer die volle Wirkung das Spiel neu starten (Einstellung bleibt gespeichert)." })
 end
 
@@ -485,12 +485,27 @@ local function onGameBoot()
     VPGF.startupReport()
 end
 
+-- One automatic "Dach-Daten" report per game start, after VPGF.autoRoofDataMinutes
+-- in-game minutes (EveryOneMinute: no per-frame work), so the Doctor always has data.
+VPGF.autoRoofDataMinutes = 40
+local autoMinutes = 0
+local function onEveryMinuteRoofData()
+    autoMinutes = autoMinutes + 1
+    if autoMinutes < VPGF.autoRoofDataMinutes then return end
+    if Events.EveryOneMinute and Events.EveryOneMinute.Remove then Events.EveryOneMinute.Remove(onEveryMinuteRoofData) end
+    if VPGF.java() then VPGF.roofData() end
+end
+
 local function onGameStart()
     onGameBoot() -- fallback if OnGameBoot ran before this file was loaded
     setResults({ "Mod aktiv. 'Diagnose AN' klicken, dann 'Tile untersuchen'.",
         "Rechtsklick in die Welt -> VPGeometryFix. In First-Person ggf. mit O in die",
         "normale Ansicht wechseln, um die Maus fuer das Fenster freizubekommen." })
     VPGF.showPanel()
+    if VPGF.java() and Events.EveryOneMinute and Events.EveryOneMinute.Add then
+        autoMinutes = 0
+        Events.EveryOneMinute.Add(onEveryMinuteRoofData)
+    end
 end
 
 -- Main menu: small text so the user sees the mod is loaded before entering a save.

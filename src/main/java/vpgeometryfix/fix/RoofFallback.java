@@ -37,6 +37,14 @@ public final class RoofFallback {
     static final Pattern VARIANT_30 = Pattern.compile("^roofs_30_(?:0[2-9]|10)$");
 
     private static volatile boolean enabled;
+    private static volatile boolean mirrorOn = true;
+    private static volatile boolean clipOn = true;
+    private static volatile boolean trimOn = true;
+    private static final AtomicLong MIRRORED = new AtomicLong();
+    /** Back-half sprites whose empty result the shape path filled (the mesh path only acts on these). */
+    private static final Map<String, Boolean> MIRRORED_BACK = new ConcurrentHashMap<>();
+    private static final AtomicLong CLIPPED = new AtomicLong();
+    private static final AtomicLong TRIMMED = new AtomicLong();
     private static final ThreadLocal<Boolean> BUSY = new ThreadLocal<>();
     private static final AtomicLong CALLS = new AtomicLong();
     private static final AtomicLong REPLACED = new AtomicLong();
@@ -60,6 +68,29 @@ public final class RoofFallback {
 
     public static void setEnabled(boolean on) {
         enabled = on;
+    }
+
+    /** Parts of the roof fix (all under the master switch {@link #setEnabled}). */
+    public static void setParts(boolean mirror, boolean clip, boolean trim) {
+        mirrorOn = mirror;
+        clipOn = clip;
+        trimOn = trim;
+    }
+
+    public static boolean isMirroredBack(String name) {
+        return name != null && MIRRORED_BACK.containsKey(name);
+    }
+
+    public static long mirrored() {
+        return MIRRORED.get();
+    }
+
+    public static long clipped() {
+        return CLIPPED.get();
+    }
+
+    public static long trimmed() {
+        return TRIMMED.get();
     }
 
     /** Number of geometryFor calls seen by the advice (proves the patch is active). */
@@ -117,9 +148,13 @@ public final class RoofFallback {
                     seen(name, "has " + original.size() + " shape(s): "
                             + (first == null || first.equals(name) ? text : "same as " + first));
                 }
-                return null;
+                return enabled ? correct(name, original) : null;
             }
             ROOF_EMPTY.incrementAndGet();
+            if (enabled && mirrorOn) {
+                ArrayList<Object> half = backHalf(name);
+                if (half != null) return half;
+            }
             String sibName = siblingSprite(name);
             if (sibName == null) {
                 emptySeen(name, "no shape, no sibling");
@@ -155,6 +190,62 @@ public final class RoofFallback {
             Log.fileOnly("roof fix B failed: " + t);
             return null;
         }
+    }
+
+    /**
+     * Trimmed copies of oversized roof slabs and gable-trim cards (see
+     * {@link RoofShapes#clipSlab}, {@link RoofShapes#thinCard}); null if nothing
+     * needs a change. The original list and shapes stay untouched.
+     */
+    static ArrayList<Object> correct(String name, List<?> original) {
+        if (!clipOn && !trimOn) return null;
+        ArrayList<Object> out = null;
+        for (int i = 0; i < original.size(); i++) {
+            Object s = original.get(i);
+            Object c = clipOn ? RoofShapes.clipSlab(s) : null;
+            boolean clipped = c != null;
+            if (c == null && trimOn && name.startsWith("roofs_accents_")) c = RoofShapes.thinCard(s);
+            if (c == null) continue;
+            if (out == null) out = new ArrayList<>(original);
+            out.set(i, c);
+            (clipped ? CLIPPED : TRIMMED).incrementAndGet();
+            if (LOGGED.putIfAbsent("corr " + name, Boolean.TRUE) == null && LOGGED.size() <= 60) {
+                Log.fileOnly("roof fix: " + name + (clipped ? " slab trimmed to its tile" : " trim card moved into the gable plane")
+                        + ": " + describe(java.util.List.of(c)));
+            }
+        }
+        return out;
+    }
+
+    /**
+     * Shapes for an empty north/west half of a steep roof: the front half's
+     * shapes (corrected), mirrored across the tile centre. Null if this is no
+     * back-half tile or the front has nothing usable.
+     */
+    static ArrayList<Object> backHalf(String name) {
+        Object[] back = RoofShapes.backOf(name);
+        if (back == null) return null;
+        String frontName = (String) back[0];
+        List<?> front = rawGeometryFor(spriteByName(frontName));
+        String source = frontName;
+        if ((front == null || front.isEmpty()) && siblingSprite(frontName) != null) {
+            source = siblingSprite(frontName);
+            front = rawGeometryFor(spriteByName(source));
+        }
+        if (front == null || front.isEmpty()) {
+            emptySeen(name, "no shape, back half: front " + frontName + " has none");
+            return null;
+        }
+        List<?> corrected = correct(source, front);
+        ArrayList<Object> mirrored = RoofShapes.mirror(corrected != null ? corrected : front, (Integer) back[1]);
+        if (mirrored == null) {
+            emptySeen(name, "no shape, back half: " + source + " cannot be mirrored");
+            return null;
+        }
+        MIRRORED.incrementAndGet();
+        MIRRORED_BACK.put(name, Boolean.TRUE);
+        emptySeen(name, "no shape, back half <- mirrored " + source + ": " + describe(mirrored));
+        return mirrored;
     }
 
     /** One file-log line per distinct roof sprite (capped): which roofs occur and what Viewpoint has for them. */
@@ -284,7 +375,9 @@ public final class RoofFallback {
     public static void stats() {
         Log.fileOnly("roof fix B stats: geometryFor calls=" + CALLS.get() + ", roofs with shape=" + ROOF_SHAPED.get()
                 + ", roofs without shape=" + ROOF_EMPTY.get() + ", replaced=" + REPLACED.get()
-                + ", fix B " + (enabled ? "ON" : "OFF"));
+                + ", fix B " + (enabled ? "ON" : "OFF") + ", back halves=" + MIRRORED.get() + ", slabs trimmed=" + CLIPPED.get()
+                + ", trim cards=" + TRIMMED.get() + ", meshes mirrored=" + RoofMirror.built() + ", texture swaps=" + RoofMirror.swapped()
+                + ", mesh rejects=" + RoofMirror.rejected());
     }
 
     static List<?> invokeGeometryFor(Object sprite) throws ReflectiveOperationException {
