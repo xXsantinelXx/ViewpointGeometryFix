@@ -5,7 +5,7 @@ Project Zomboid Build 42.21). Ziel ist, falsch, unvollständig, verschoben oder
 gar nicht gerenderte Dächer, Dachkanten, Wände und Objekte zu untersuchen und
 später zu beheben.
 
-**Aktueller Stand: 0.1.1-diag – reine Diagnoseversion.**
+**Aktueller Stand: 0.1.2-diag – reine Diagnoseversion.**
 Sie ändert **nichts** am Rendering, am Gameplay, an Savegames, an
 `projectzomboid.jar` oder an Viewpoint-Dateien und installiert keine Patches.
 
@@ -14,13 +14,14 @@ Sie ändert **nichts** am Rendering, am Gameplay, an Savegames, an
 * erkennt Project-Zomboid-Version, ZombieBuddy und Viewpoint (Klassen, JAR,
   `mod.info`, SHA-256 gegen auditierte Builds)
 * schreibt beim Spielstart den eindeutigen Block `[VPGeometryFix] Loaded` …
-* Debug-Modus (Taste **Pos1/Home**, `config.properties` oder `-Dvpgf.debug=true`)
-* Inspektion eines Ziel-Tiles samt Säule z-1…z+2 (Taste **Ende/End**) inkl.
-  Konsolen-API für feste X/Y/Z-Koordinaten
-* Hover-Modus (**Bild↑/PageUp**) und lokales Viewpoint-Klasseninventar
-  (**Bild↓/PageDown**) für die Suche nach den Geometrie-Klassen
-* Alle Tasten sind unter Optionen → Tastenbelegung → `[VPGeometryFix]` änderbar;
-  Rückmeldung erscheint direkt oben links auf dem Bildschirm
+* **Fenster im Spiel** (erscheint beim Laden eines Spielstands) mit Status
+  (Java-Teil, PZ-, Viewpoint-, ZombieBuddy-Version) und Schaltflächen:
+  Diagnose an/aus, Tile untersuchen, Ziel fixieren, Hover, Klasseninventar
+* **Rechtsklick in die Welt → VPGeometryFix**: angeklicktes Tile untersuchen/fixieren
+* **Keine Standard-Tasten** (die PZ-Debug-Version belegt F-Tasten u. a.);
+  optional selbst belegbar unter Optionen → Tastenbelegung → `[VPGeometryFix]`
+* Inspektion einer Tile-Säule z-1…z+2 mit Bericht nur der render-relevanten Felder
+* sparsame Logs: Startblock + eine `TILE`-Zeile pro Objekt; Details nur in Dateien
 
 Details: [docs/DIAGNOSTICS.md](docs/DIAGNOSTICS.md) ·
 Recherche: [docs/RESEARCH.md](docs/RESEARCH.md) ·
@@ -36,14 +37,15 @@ Architektur: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
 ## Installation (Windows 11)
 
 1. Spiel schließen.
-2. `build/dist/ViewpointGeometryFix-0.1.1-diag.zip` nach
+2. `build/dist/ViewpointGeometryFix-0.1.2-diag.zip` nach
    `%USERPROFILE%\Zomboid\mods\` entpacken. Ergebnis:
    `%USERPROFILE%\Zomboid\mods\ViewpointGeometryFix\42\mod.info`.
 3. Spiel starten → Mods → **Viewpoint Geometry Fix (Diagnostics)** aktivieren
    (ZombieBuddy muss aktiv sein).
 4. ZombieBuddy fragt beim nächsten Start, ob das (unsignierte) JAR geladen
    werden darf → zulassen.
-5. Prüfen: `%USERPROFILE%\Zomboid\console.txt` enthält `[VPGeometryFix] Loaded`.
+5. Spielstand laden: oben links erscheint das Fenster „Viewpoint Geometry Fix“.
+   Zusätzlich steht in `%USERPROFILE%\Zomboid\console.txt` `[VPGeometryFix] Loaded`.
 
 Deinstallation: Mod deaktivieren oder den Ordner löschen; zusätzlich ggf.
 `%USERPROFILE%\Zomboid\VPGeometryFix\` (nur Logs/Berichte).

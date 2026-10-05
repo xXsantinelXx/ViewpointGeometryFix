@@ -122,6 +122,14 @@ public final class AllTests {
             contains(out, "[VPGeometryFix] Debug mode: OFF");
             check(out.indexOf("Loaded") < out.indexOf("PZ version") && out.indexOf("PZ version") < out.indexOf("Debug mode"));
             check(Files.readString(tmp.resolve("VPGeometryFix.log")).contains("[VPGeometryFix] Loaded"));
+            check(Files.readString(tmp.resolve("VPGeometryFix.log")).contains("detail viewpoint jar"));
+            check(!out.contains("detail"));
+            check(out.split("\n").length == 5);
+        });
+
+        test("status for the panel", () -> {
+            String st = LuaBridge.status();
+            contains(st, "Java-Teil: OK\nPZ: unknown\nViewpoint: erkannt\nZombieBuddy: nicht gefunden");
         });
 
         test("viewpoint first-person probe", () -> {
@@ -149,9 +157,15 @@ public final class AllTests {
                 contains(rep, "FakeObject sprite=walls_exterior_house_01_0 kind~WALL");
                 contains(rep, "z+1: square is null");
                 contains(rep, "View.enabled=false");
+                contains(rep, "FakeObject.alpha : float = 0.5");
+                check(!rep.contains("unrelatedCounter"));
+                contains(LuaBridge.lastSummary(), "TILE 10,20,1 Objects#0 FakeObject sprite=roofs_01_12 kind~ROOF");
             });
-            contains(out, "[VPGeometryFix] inspect z+0 10,20,1:");
-            contains(out, "[VPGeometryFix] inspect report: ");
+            contains(out, "[VPGeometryFix] TILE 10,20,1 Objects#0 FakeObject sprite=roofs_01_12 kind~ROOF");
+            contains(out, "[VPGeometryFix] TILE 10,20,1 SpecialObjects#0 FakeObject sprite=walls_exterior_house_01_0 kind~WALL");
+            contains(out, "[VPGeometryFix] TILE z+1 not loaded");
+            contains(out, "[VPGeometryFix] report -> ");
+            check(!out.contains("alpha"));
         });
 
         test("bridge never throws on bad input", () -> {

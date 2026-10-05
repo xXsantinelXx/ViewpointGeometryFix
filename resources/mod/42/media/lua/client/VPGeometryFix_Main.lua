@@ -2,51 +2,44 @@
     Viewpoint Geometry Fix - diagnostic build (client only).
 
     Does NOT change rendering, gameplay, save games, Viewpoint or game files.
-    All heavy work runs only on explicit user action (hotkeys / console calls).
-    Normal play cost: one OnKeyPressed check per key press. The on-screen
-    overlay (OnPostUIDraw) is registered only while debug mode is on or a
-    message is showing; hover mode adds a throttled OnTick only while on.
 
-    Hotkeys are single keys (no modifiers), listed and rebindable in
-    Options > Key Bindings > [VPGeometryFix]. Registration uses the keyBinding
-    table + getCore():getKey(name), the pattern PeekAView uses on 42.21.
+    Bedienung ohne Tasten (F-Tasten belegt die Debug-Version von PZ selbst):
+      * Fenster "Viewpoint Geometry Fix" erscheint beim Laden eines Spielstands,
+        verschiebbar, mit Schaltflaechen.
+      * Rechtsklick in die Welt: Eintrag "VPGeometryFix" (Fenster oeffnen,
+        angeklicktes Tile untersuchen, als Ziel fixieren).
+      * Optional: zwei Tasten in Optionen > Tastenbelegung > [VPGeometryFix],
+        standardmaessig NICHT belegt.
+      * Debug-Konsole: VPGF.showPanel(), VPGF.inspect(), VPGF.inspectAt(x,y,z),
+        VPGF.setTarget(x,y,z), VPGF.clearTarget(), VPGF.inventory("viewpoint"|"game"),
+        VPGF.viewpointState(), VPGF.dumpStatics("viewpoint.core.View")
 
-    Console API (debug console / Lua):
-        VPGF.setDebug(true|false)
-        VPGF.inspect()                -- inspect current target (needs debug on)
-        VPGF.inspectAt(x, y, z)       -- inspect a fixed square column
-        VPGF.setTarget(x, y, z)       -- pin the target; VPGF.clearTarget()
-        VPGF.inventory("viewpoint"|"game")
-        VPGF.viewpointState()
-        VPGF.dumpStatics("viewpoint.core.View")
+    console.txt bekommt nur: den Startblock, TILE-Zeilen einer Untersuchung und
+    den Berichtspfad. Alles Weitere steht im Fenster bzw. in den Berichtsdateien.
+    Kosten im Normalbetrieb: Zeichnen des Fensters (nur solange offen); Hover
+    nutzt OnTick nur solange eingeschaltet.
 ]]
 
 VPGF = VPGF or {}
-VPGF.VERSION = "0.1.1-diag"
+VPGF.VERSION = "0.1.2-diag"
 VPGF.PREFIX = "[VPGeometryFix] "
 
--- Key binding names (shown in Options > Key Bindings) and defaults.
--- Fallback numbers are the LWJGL key codes in case a Keyboard constant is missing.
-local function kc(name, code)
-    local v = Keyboard and Keyboard[name]
-    return v or code
-end
+VPGF.facingDistance = VPGF.facingDistance or 1   -- tiles ahead of the player
+VPGF.columnBelow = VPGF.columnBelow or 1         -- inspect z-1 .. z+columnAbove
+VPGF.columnAbove = VPGF.columnAbove or 2         -- roofs usually sit 1-2 levels above the player
+VPGF.hoverInterval = VPGF.hoverInterval or 20    -- ticks between hover checks
+
+-- Optional key bindings, unbound by default (key = 0). Pattern verified on 42.21 by PeekAView.
 VPGF.bindings = {
-    { action = "toggleDebug", name = "VPGF Toggle Debug", default = kc("KEY_HOME", 199) },
-    { action = "inspect", name = "VPGF Inspect Target", default = kc("KEY_END", 207) },
-    { action = "hover", name = "VPGF Hover Mode", default = kc("KEY_PRIOR", 201) },
-    { action = "inventory", name = "VPGF Class Inventory", default = kc("KEY_NEXT", 209) },
+    { action = "panel", name = "VPGF Panel" },
+    { action = "inspect", name = "VPGF Inspect Target" },
 }
 if keyBinding then
     table.insert(keyBinding, { value = "[VPGeometryFix]" })
     for _, b in ipairs(VPGF.bindings) do
-        table.insert(keyBinding, { value = b.name, key = b.default })
+        table.insert(keyBinding, { value = b.name, key = 0 })
     end
 end
-VPGF.facingDistance = VPGF.facingDistance or 1   -- tiles ahead of the player
-VPGF.columnBelow = VPGF.columnBelow or 1         -- also inspect z-1 .. z+columnAbove
-VPGF.columnAbove = VPGF.columnAbove or 2         -- roofs usually sit 1-2 levels above the player
-VPGF.hoverInterval = VPGF.hoverInterval or 20    -- ticks between hover checks
 
 local luaDebug = false
 local pinned = nil
@@ -54,8 +47,8 @@ local hoverOn = false
 local hoverTick = 0
 local lastHoverKey = nil
 local reported = false
-local messageText = nil
-local messageUntil = 0
+local results = {}          -- last result lines shown in the panel
+local panel = nil
 local overlayOn = false
 
 local function log(msg)
@@ -68,65 +61,7 @@ local function try(fn, ...)
     return nil
 end
 
--------------------------------------------------------------------------------
--- On-screen feedback (console.txt is not visible in game)
--------------------------------------------------------------------------------
-
-local function nowMs()
-    return (getTimestampMs and try(getTimestampMs)) or (os and os.time and os.time() * 1000) or 0
-end
-
-local function keyName(action)
-    for _, b in ipairs(VPGF.bindings) do
-        if b.action == action then
-            local code = getCore and try(function() return getCore():getKey(b.name) end) or b.default
-            local n = Keyboard and Keyboard.getKeyName and try(Keyboard.getKeyName, code)
-            return n or tostring(code)
-        end
-    end
-    return "?"
-end
-
-local updateOverlay
-
-local function drawOverlay()
-    local tm = getTextManager and getTextManager()
-    if not tm then return end
-    local y = 40
-    local function line(text, r, g, b)
-        try(function() tm:DrawString(UIFont.Small, 21, y + 1, text, 0, 0, 0, 1) end)
-        try(function() tm:DrawString(UIFont.Small, 20, y, text, r, g, b, 1) end)
-        y = y + 18
-    end
-    if VPGF.isDebug() then
-        line("VPGeometryFix DEBUG  |  " .. keyName("inspect") .. ": untersuchen  " .. keyName("hover")
-            .. ": hover  " .. keyName("inventory") .. ": Inventar  " .. keyName("toggleDebug") .. ": aus", 1, 0.85, 0.2)
-        if not VPGF.java() then line("Java-Teil NICHT geladen (ZombieBuddy?) - nur Lua-Zusammenfassung", 1, 0.3, 0.3) end
-    end
-    if messageText then
-        if nowMs() < messageUntil then
-            line(messageText, 0.4, 1, 0.4)
-        else
-            messageText = nil
-            updateOverlay()
-        end
-    end
-end
-
-updateOverlay = function()
-    local want = VPGF.isDebug() or messageText ~= nil
-    if want == overlayOn or not (Events and Events.OnPostUIDraw) then return end
-    overlayOn = want
-    if want then Events.OnPostUIDraw.Add(drawOverlay) else Events.OnPostUIDraw.Remove(drawOverlay) end
-end
-
--- Shows a message on screen for a few seconds and in console.txt.
-function VPGF.notify(text, seconds)
-    print(VPGF.PREFIX .. tostring(text))
-    messageText = "VPGeometryFix: " .. tostring(text)
-    messageUntil = nowMs() + (seconds or 5) * 1000
-    updateOverlay()
-end
+local function floor(v) return math.floor(tonumber(v) or 0) end
 
 -- True when the Java part (ZombieBuddy-loaded JAR) registered its globals.
 function VPGF.java()
@@ -138,26 +73,32 @@ function VPGF.isDebug()
     return luaDebug
 end
 
-function VPGF.setDebug(on)
-    luaDebug = on and true or false
-    if VPGF.java() then
-        try(VPGF_setDebug, luaDebug)
-    else
-        log("Debug mode: " .. (luaDebug and "ON" or "OFF") .. " (runtime toggle, Lua only)")
+-- Replaces the result area of the panel (and the fallback overlay).
+local function setResults(lines)
+    results = {}
+    for _, l in ipairs(lines) do
+        if #results >= 8 then table.insert(results, "...") break end
+        table.insert(results, tostring(l))
     end
-    VPGF.notify("Debug " .. (luaDebug and "AN" or "AUS"), 3)
-    if not luaDebug then VPGF.setHover(false) end
 end
 
--- Mod ids that look like Viewpoint, excluding this mod and known add-ons.
+local function splitLines(s)
+    local out = {}
+    for line in string.gmatch(tostring(s or ""), "[^\n]+") do table.insert(out, line) end
+    return out
+end
+
+-------------------------------------------------------------------------------
+-- Status
+-------------------------------------------------------------------------------
+
 local function viewpointModIds()
     local found = {}
     local mods = getActivatedMods and try(getActivatedMods)
     if not mods then return found end
     for i = 0, mods:size() - 1 do
         local id = tostring(mods:get(i))
-        local plain = id:gsub("^\\", "")
-        local lower = string.lower(plain)
+        local lower = string.lower((id:gsub("^\\", "")))
         if lower == "viewpoint" or (string.find(lower, "viewpoint", 1, true)
                 and lower ~= "viewpointgeometryfix" and lower ~= "projectviewpointvr") then
             table.insert(found, id)
@@ -172,6 +113,24 @@ local function luaPzVersion()
     return tostring(try(function() return core:getVersion() end) or "")
 end
 
+function VPGF.statusLines()
+    local lines
+    if VPGF.java() then
+        lines = splitLines(try(VPGF_status) or "Java-Teil: OK")
+    else
+        local ids = viewpointModIds()
+        lines = {
+            "Java-Teil: NICHT geladen (ZombieBuddy-Freigabe pruefen)",
+            "PZ: " .. luaPzVersion(),
+            "Viewpoint: " .. ((#ids > 0) and "Mod aktiv (nur Mod-Liste)" or "nicht in Mod-Liste"),
+        }
+    end
+    table.insert(lines, "Diagnose: " .. (VPGF.isDebug() and "AN" or "AUS")
+        .. (pinned and string.format("   Ziel fixiert: %d,%d,%d", pinned.x, pinned.y, pinned.z) or "")
+        .. (hoverOn and "   Hover: AN" or ""))
+    return lines
+end
+
 function VPGF.startupReport()
     local ids = viewpointModIds()
     local idList = table.concat(ids, ",")
@@ -179,9 +138,8 @@ function VPGF.startupReport()
         try(VPGF_startupReport, luaPzVersion(), #ids > 0, idList)
         return
     end
-    -- Fallback: Java part missing (ZombieBuddy absent, JAR blocked or failed).
     local zb = "no"
-    if type(ZombieBuddy) == "table" or type(ZombieBuddy) == "userdata" then
+    if ZombieBuddy ~= nil then
         local v = try(function() return ZombieBuddy.getVersion() end)
         zb = "yes (version " .. tostring(v) .. ") but VPGeometryFix Java part NOT loaded - check ZombieBuddy approval"
     end
@@ -196,8 +154,6 @@ end
 -- Target resolution
 -------------------------------------------------------------------------------
 
-local function floor(v) return math.floor(tonumber(v) or 0) end
-
 local function facingTarget(player)
     local fd = try(function() return player:getForwardDirection() end)
     local fx, fy = 0, 0
@@ -206,128 +162,115 @@ local function facingTarget(player)
         fy = tonumber(try(function() return fd:getY() end)) or 0
     end
     local d = VPGF.facingDistance
-    return floor(player:getX() + fx * d), floor(player:getY() + fy * d), floor(player:getZ()), "facing+" .. d
+    return floor(player:getX() + fx * d), floor(player:getY() + fy * d), floor(player:getZ()), "vor dem Spieler"
 end
 
-local function mouseTarget(player)
-    local z = floor(player:getZ())
-    local mx = getMouseXScaled and try(getMouseXScaled) or (getMouseX and try(getMouseX))
-    local my = getMouseYScaled and try(getMouseYScaled) or (getMouseY and try(getMouseY))
-    if not mx or not my then return nil end
-    if ISCoordConversion and ISCoordConversion.ToWorld then
-        local ok, wx, wy = pcall(ISCoordConversion.ToWorld, mx, my, z)
-        if ok and wx and wy then return floor(wx), floor(wy), z, "mouse(ISCoordConversion)" end
-    end
-    if screenToIsoX and screenToIsoY then
-        local pn = try(function() return player:getPlayerNum() end) or 0
-        local wx = try(screenToIsoX, pn, mx, my, z)
-        local wy = try(screenToIsoY, pn, mx, my, z)
-        if wx and wy then return floor(wx), floor(wy), z, "mouse(screenToIso)" end
-    end
-    return nil
-end
-
--- Returns x, y, z, source. Priority: pinned > Viewpoint pick (unknown, TODO) > mouse (iso only) > facing.
+-- Returns x, y, z, source. Priority: pinned > in front of the player.
+-- (Viewpoint's crosshair pick is not known yet; see ViewpointProbe.pickedTarget.)
 function VPGF.resolveTarget()
-    if pinned then return pinned.x, pinned.y, pinned.z, "pinned" end
+    if pinned then return pinned.x, pinned.y, pinned.z, "fixiertes Ziel" end
     local player = getPlayer and getPlayer()
     if not player then return nil end
-    local fp = VPGF.java() and try(VPGF_viewpointFirstPerson) or "unknown"
-    if fp == "false" then
-        local x, y, z, src = mouseTarget(player)
-        if x then return x, y, z, src end
-    end
     return facingTarget(player)
 end
 
 function VPGF.setTarget(x, y, z)
     pinned = { x = floor(x), y = floor(y), z = floor(z) }
-    log("target pinned at " .. pinned.x .. "," .. pinned.y .. "," .. pinned.z)
+    setResults({ string.format("Ziel fixiert: %d,%d,%d", pinned.x, pinned.y, pinned.z) })
 end
 
 function VPGF.clearTarget()
     pinned = nil
-    log("target unpinned")
+    setResults({ "Ziel geloest - untersucht wird wieder das Tile vor dem Spieler" })
 end
 
 -------------------------------------------------------------------------------
--- Inspection
+-- Actions
 -------------------------------------------------------------------------------
 
--- Lua-only one-line summary of a square (used by hover mode and as fallback).
+function VPGF.setDebug(on)
+    luaDebug = on and true or false
+    if VPGF.java() then
+        try(VPGF_setDebug, luaDebug)
+    else
+        log("Debug mode: " .. (luaDebug and "ON" or "OFF") .. " (runtime toggle, Lua only)")
+    end
+    if not luaDebug then VPGF.setHover(false) end
+    setResults({ "Diagnose " .. (luaDebug and "AN - jetzt 'Tile untersuchen' moeglich" or "AUS") })
+end
+
+-- Lua-only one-line summary of a square (hover mode and fallback without Java).
 local function luaSquareSummary(sq)
-    if not sq then return "no square" end
+    if not sq then return "nicht geladen" end
     local parts = {}
     local objs = try(function() return sq:getObjects() end)
     if objs then
         for i = 0, objs:size() - 1 do
             local o = objs:get(i)
             local spr = try(function() return o:getSprite():getName() end)
-            local name = try(function() return o:getObjectName() end)
-            table.insert(parts, "[" .. i .. "] " .. tostring(name) .. ":" .. tostring(spr))
+            table.insert(parts, "#" .. i .. " " .. tostring(spr))
         end
     end
-    return (#parts > 0) and table.concat(parts, " ") or "(no objects)"
+    return (#parts > 0) and table.concat(parts, "  ") or "leer"
 end
 
 function VPGF.inspectAt(x, y, z, source)
     if not VPGF.isDebug() then
-        VPGF.notify("Debug ist AUS - zuerst " .. keyName("toggleDebug") .. " druecken")
+        setResults({ "Diagnose ist AUS - zuerst 'Diagnose AN' klicken" })
         return
     end
     local cell = getCell and getCell()
-    if not cell then log("inspect: no cell (not in game)") return end
+    if not cell then setResults({ "kein Spielstand geladen" }) return end
     x, y, z = floor(x), floor(y), floor(z)
-    source = source or "manual"
-    log(string.format("inspect target %d,%d,%d source=%s", x, y, z, source))
-    local useJava = VPGF.java()
-    if useJava then try(VPGF_reportBegin, source, x, y, z) end
-    for dz = -VPGF.columnBelow, VPGF.columnAbove do
-        local sq = cell:getGridSquare(x, y, z + dz)
-        local label = "z" .. (dz >= 0 and "+" or "") .. dz
-        if useJava then
-            try(VPGF_reportSquare, sq, label)
-        else
-            log("inspect " .. label .. " " .. x .. "," .. y .. "," .. (z + dz) .. ": " .. luaSquareSummary(sq))
+    source = source or "manuell"
+    local lines = { string.format("Tile %d,%d,%d (%s):", x, y, z, source) }
+    if VPGF.java() then
+        try(VPGF_reportBegin, source, x, y, z)
+        for dz = -VPGF.columnBelow, VPGF.columnAbove do
+            try(VPGF_reportSquare, cell:getGridSquare(x, y, z + dz), "z" .. (dz >= 0 and "+" or "") .. dz)
         end
-    end
-    if useJava then
         local path = try(VPGF_reportEnd)
-        if path then
-            VPGF.notify(string.format("Tile %d,%d,%d untersucht (%s) -> %s", x, y, z, source, tostring(path)), 8)
-        else
-            VPGF.notify("Bericht konnte nicht geschrieben werden - siehe console.txt", 8)
-        end
+        for _, l in ipairs(splitLines(try(VPGF_lastSummary))) do table.insert(lines, l) end
+        table.insert(lines, path and ("Bericht: " .. tostring(path)) or "Bericht konnte nicht geschrieben werden")
     else
-        VPGF.notify(string.format("Tile %d,%d,%d untersucht (nur Lua) - Ergebnis in console.txt", x, y, z), 8)
+        for dz = -VPGF.columnBelow, VPGF.columnAbove do
+            local line = "TILE " .. x .. "," .. y .. "," .. (z + dz) .. " " .. luaSquareSummary(cell:getGridSquare(x, y, z + dz))
+            log(line)
+            table.insert(lines, line)
+        end
     end
+    setResults(lines)
 end
 
 function VPGF.inspect()
     local x, y, z, src = VPGF.resolveTarget()
-    if not x then VPGF.notify("kein Ziel (kein Spieler?)") return end
+    if not x then setResults({ "kein Ziel (kein Spieler?)" }) return end
     VPGF.inspectAt(x, y, z, src)
 end
 
 function VPGF.inventory(which)
-    if not VPGF.java() then VPGF.notify("Inventar braucht den Java-Teil (ZombieBuddy)") return end
+    if not VPGF.isDebug() then setResults({ "Diagnose ist AUS" }) return end
+    if not VPGF.java() then setResults({ "Inventar braucht den Java-Teil (ZombieBuddy)" }) return end
     local path = try(VPGF_inventory, which or "viewpoint")
-    VPGF.notify(path and ("Inventar -> " .. tostring(path)) or "Inventar fehlgeschlagen (Viewpoint gefunden?) - siehe console.txt", 8)
+    setResults({ path and ("Inventar: " .. tostring(path)) or "Inventar fehlgeschlagen (Viewpoint gefunden?)",
+        "Nur lokal - nicht veroeffentlichen" })
     return path
 end
 
 function VPGF.viewpointState()
-    if not VPGF.java() then log("viewpointState needs the Java part (ZombieBuddy)") return end
-    return try(VPGF_viewpointState)
+    if not VPGF.java() then setResults({ "braucht den Java-Teil (ZombieBuddy)" }) return end
+    local s = try(VPGF_viewpointState)
+    setResults({ "Viewpoint: " .. tostring(s) })
+    return s
 end
 
 function VPGF.dumpStatics(className)
-    if not VPGF.java() then log("dumpStatics needs the Java part (ZombieBuddy)") return end
+    if not VPGF.java() then return end
     try(VPGF_dumpStatics, className)
 end
 
 -------------------------------------------------------------------------------
--- Hover mode: console summary whenever the target square changes.
+-- Hover: panel shows the target square whenever it changes (no console spam).
 -------------------------------------------------------------------------------
 
 local function onHoverTick()
@@ -341,58 +284,167 @@ local function onHoverTick()
     lastHoverKey = key
     local cell = getCell and getCell()
     if not cell then return end
+    local lines = { "Hover " .. key .. " (" .. src .. "):" }
     for dz = 0, VPGF.columnAbove do
-        log("hover " .. src .. " " .. x .. "," .. y .. "," .. (z + dz) .. ": "
-            .. luaSquareSummary(cell:getGridSquare(x, y, z + dz)))
+        table.insert(lines, "z+" .. dz .. ": " .. luaSquareSummary(cell:getGridSquare(x, y, z + dz)))
     end
-    messageText = "VPGeometryFix hover " .. src .. " " .. key .. ": " .. luaSquareSummary(cell:getGridSquare(x, y, z))
-    messageUntil = nowMs() + 3000
-    updateOverlay()
+    setResults(lines)
 end
 
 function VPGF.setHover(on)
+    on = on and true or false
+    if on and not VPGF.isDebug() then setResults({ "Diagnose ist AUS" }) return end
     if on == hoverOn then return end
     hoverOn = on
     lastHoverKey = nil
-    if on then
-        Events.OnTick.Add(onHoverTick)
-    else
-        Events.OnTick.Remove(onHoverTick)
+    if on then Events.OnTick.Add(onHoverTick) else Events.OnTick.Remove(onHoverTick) end
+end
+
+-------------------------------------------------------------------------------
+-- Panel (vanilla ISPanel/ISButton). Fallback: plain text overlay.
+-------------------------------------------------------------------------------
+
+local PANEL_W, LINE_H, BTN_H = 470, 16, 22
+
+local function buttonDefs()
+    return {
+        { function() return VPGF.isDebug() and "Diagnose AUS" or "Diagnose AN" end,
+          function() VPGF.setDebug(not VPGF.isDebug()) end },
+        { function() return "Tile untersuchen" end, function() VPGF.inspect() end },
+        { function() return pinned and "Ziel loesen" or "Ziel fixieren" end,
+          function()
+              if pinned then VPGF.clearTarget() return end
+              local x, y, z = VPGF.resolveTarget()
+              if x then VPGF.setTarget(x, y, z) end
+          end },
+        { function() return hoverOn and "Hover AUS" or "Hover AN" end, function() VPGF.setHover(not hoverOn) end },
+        { function() return "Inventar" end, function() VPGF.inventory("viewpoint") end },
+        { function() return "X" end, function() VPGF.hidePanel() end },
+    }
+end
+VPGF.buttonDefs = buttonDefs
+
+local function textLines()
+    local lines = { { "Viewpoint Geometry Fix " .. VPGF.VERSION, 1, 0.8, 0.2 } }
+    for _, l in ipairs(VPGF.statusLines()) do
+        local bad = string.find(l, "NICHT", 1, true) or string.find(l, "nicht gefunden", 1, true)
+        table.insert(lines, { l, bad and 1 or 0.85, bad and 0.35 or 0.85, bad and 0.35 or 0.85 })
     end
-    VPGF.notify("Hover " .. (on and "AN" or "AUS"), 3)
+    for _, l in ipairs(results) do table.insert(lines, { l, 0.45, 1, 0.45 }) end
+    return lines
+end
+VPGF.textLines = textLines
+
+local function createPanel()
+    if not ISPanel or not ISButton then return nil end
+    local P = ISPanel:derive("VPGFPanel")
+
+    function P:createChildren()
+        ISPanel.createChildren(self)
+        self.vpgfButtons = {}
+        local x = 6
+        for i, def in ipairs(buttonDefs()) do
+            local w = (i == 6) and 24 or 84
+            local b = ISButton:new(x, 0, w, BTN_H, def[1](), self, function() def[2]() end)
+            b:initialise()
+            b:instantiate()
+            self:addChild(b)
+            self.vpgfButtons[i] = { button = b, label = def[1] }
+            x = x + w + 4
+        end
+    end
+
+    function P:render()
+        ISPanel.render(self)
+        local y = 6
+        for _, l in ipairs(textLines()) do
+            self:drawText(l[1], 8, y, l[2], l[3], l[4], 1, UIFont.Small)
+            y = y + LINE_H
+        end
+        y = y + 4
+        for _, e in ipairs(self.vpgfButtons or {}) do
+            e.button:setY(y)
+            e.button.title = e.label()
+        end
+        local h = y + BTN_H + 6
+        if self:getHeight() ~= h then self:setHeight(h) end
+    end
+
+    local p = P:new(20, 120, PANEL_W, 140)
+    p.moveWithMouse = true
+    p.backgroundColor = { r = 0, g = 0, b = 0, a = 0.8 }
+    p.borderColor = { r = 1, g = 0.8, b = 0.2, a = 1 }
+    p:initialise()
+    p:instantiate()
+    return p
+end
+
+local function drawOverlay()
+    local tm = getTextManager and getTextManager()
+    if not tm then return end
+    local y = 120
+    for _, l in ipairs(textLines()) do
+        try(function() tm:DrawString(UIFont.Small, 21, y + 1, l[1], 0, 0, 0, 1) end)
+        try(function() tm:DrawString(UIFont.Small, 20, y, l[1], l[2], l[3], l[4], 1) end)
+        y = y + LINE_H
+    end
+end
+
+function VPGF.showPanel()
+    if panel == nil then panel = try(createPanel) or false end
+    if panel then
+        try(function() panel:addToUIManager() panel:setVisible(true) end)
+    elseif not overlayOn and Events.OnPostUIDraw then
+        overlayOn = true
+        Events.OnPostUIDraw.Add(drawOverlay)
+    end
+end
+
+function VPGF.hidePanel()
+    if panel then try(function() panel:setVisible(false) panel:removeFromUIManager() end) end
+    if overlayOn then
+        overlayOn = false
+        Events.OnPostUIDraw.Remove(drawOverlay)
+    end
+end
+
+function VPGF.togglePanel()
+    local visible = (panel and try(function() return panel:getIsVisible() end)) or overlayOn
+    if visible then VPGF.hidePanel() else VPGF.showPanel() end
 end
 
 -------------------------------------------------------------------------------
 -- Events
 -------------------------------------------------------------------------------
 
--- Maps a pressed key code to an action using the live bindings from Options.
-local function actionFor(key)
-    for _, b in ipairs(VPGF.bindings) do
-        local code = getCore and try(function() return getCore():getKey(b.name) end)
-        if code == nil or code == 0 then code = b.default end
-        if key == code then return b.action end
+local function onFillWorldObjectContextMenu(playerNum, context, worldobjects, test)
+    if test or not context then return end
+    local sq
+    for _, o in ipairs(worldobjects or {}) do
+        sq = try(function() return o:getSquare() end)
+        if sq then break end
     end
-    return nil
+    local option = context:addOption("VPGeometryFix", nil, nil)
+    local sub = ISContextMenu and try(function() return ISContextMenu:getNew(context) end)
+    local menu = sub or context
+    if sub then context:addSubMenu(option, sub) end
+    menu:addOption("Fenster oeffnen", nil, function() VPGF.showPanel() end)
+    if sq then
+        local x, y, z = sq:getX(), sq:getY(), sq:getZ()
+        menu:addOption(string.format("Dieses Tile untersuchen (%d,%d,%d)", x, y, z), nil,
+            function() VPGF.showPanel() VPGF.inspectAt(x, y, z, "Rechtsklick") end)
+        menu:addOption("Dieses Tile als Ziel fixieren", nil, function() VPGF.showPanel() VPGF.setTarget(x, y, z) end)
+    end
 end
 
 local function onKeyPressed(key)
-    local action = actionFor(key)
-    if not action then return end
-    if action == "toggleDebug" then
-        VPGF.setDebug(not VPGF.isDebug())
-        return
-    end
-    if not VPGF.isDebug() then
-        VPGF.notify("Debug ist AUS - zuerst " .. keyName("toggleDebug") .. " druecken")
-        return
-    end
-    if action == "inspect" then
-        VPGF.inspect()
-    elseif action == "hover" then
-        VPGF.setHover(not hoverOn)
-    elseif action == "inventory" then
-        VPGF.inventory("viewpoint")
+    if not key or key == 0 or not getCore then return end
+    for _, b in ipairs(VPGF.bindings) do
+        local code = try(function() return getCore():getKey(b.name) end)
+        if code and code ~= 0 and code == key then
+            if b.action == "panel" then VPGF.togglePanel() else VPGF.inspect() end
+            return
+        end
     end
 end
 
@@ -403,14 +455,16 @@ local function onGameBoot()
 end
 
 local function onGameStart()
-    -- Fallback if OnGameBoot ran before this file was loaded (mod enabled per save).
-    onGameBoot()
-    VPGF.notify("aktiv" .. (VPGF.java() and "" or " (OHNE Java-Teil)") .. " - Debug: " .. keyName("toggleDebug")
-        .. "  (Tasten: Optionen > Tastenbelegung > [VPGeometryFix])", 10)
-    if not VPGF.isDebug() then return end
-    log("session start; viewpoint state: " .. tostring(VPGF.java() and try(VPGF_viewpointState) or "n/a"))
+    onGameBoot() -- fallback if OnGameBoot ran before this file was loaded
+    setResults({ "Mod aktiv. 'Diagnose AN' klicken, dann 'Tile untersuchen'.",
+        "Rechtsklick in die Welt -> VPGeometryFix. In First-Person ggf. mit O in die",
+        "normale Ansicht wechseln, um die Maus fuer das Fenster freizubekommen." })
+    VPGF.showPanel()
 end
 
 Events.OnGameBoot.Add(onGameBoot)
 Events.OnGameStart.Add(onGameStart)
 Events.OnKeyPressed.Add(onKeyPressed)
+if Events.OnFillWorldObjectContextMenu then
+    Events.OnFillWorldObjectContextMenu.Add(onFillWorldObjectContextMenu)
+end

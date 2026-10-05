@@ -64,17 +64,42 @@ public final class LuaBridge {
             Log.info("Viewpoint detected: " + vp);
             Log.info("ZombieBuddy detected: " + zb);
             Log.info("Debug mode: " + (Config.isDebug() ? "ON" : "OFF") + " (source: " + Config.source() + ")");
-            if (Config.isDebug()) {
-                Log.info("[debug] pz version source: " + i.pzVersionSource + ", game jar: " + i.gameJar);
-                Log.info("[debug] game jar sha256: " + i.gameJarSha);
-                Log.info("[debug] viewpoint jar: " + i.vpJar + " (probe class " + i.vpProbeClass + ")");
-                Log.info("[debug] viewpoint jar sha256: " + i.vpJarSha);
-                Log.info("[debug] zombiebuddy jar: " + i.zbJar + " sha256: " + i.zbJarSha);
-                Log.info("[debug] java: " + System.getProperty("java.version") + " / " + System.getProperty("java.vm.name"));
-                for (String n : i.notes) Log.info("[debug] note: " + n);
-            }
+            // Details go to VPGeometryFix.log only, so console.txt stays short.
+            Log.fileOnly("detail pz version source: " + i.pzVersionSource + ", game jar: " + i.gameJar + " sha256=" + i.gameJarSha);
+            Log.fileOnly("detail viewpoint jar: " + i.vpJar + " (probe " + i.vpProbeClass + ") sha256=" + i.vpJarSha);
+            Log.fileOnly("detail zombiebuddy jar: " + i.zbJar + " sha256=" + i.zbJarSha);
+            Log.fileOnly("detail java: " + System.getProperty("java.version") + " / " + System.getProperty("java.vm.name"));
+            for (String n : i.notes) Log.fileOnly("detail note: " + n);
         } catch (Throwable t) {
             Log.error("startupReport failed", t);
+        }
+    }
+
+    /** Short status lines for the in-game panel, separated by newlines. No logging. */
+    @LuaMethod(name = "VPGF_status", global = true)
+    public static String status() {
+        try {
+            Env.Info i = Env.detect(false);
+            String vp = i.vpClassesFound
+                    ? "erkannt" + (i.vpModVersion != null ? " " + i.vpModVersion : "")
+                        + (i.vpJarSha != null && KnownBinaries.PINS.containsKey(i.vpJarSha) ? " (auditierter Build)" : "")
+                    : "nicht gefunden";
+            return "Java-Teil: OK\n"
+                    + "PZ: " + i.pzVersion + "\n"
+                    + "Viewpoint: " + vp + "\n"
+                    + "ZombieBuddy: " + (i.zbDetected ? i.zbVersion : "nicht gefunden");
+        } catch (Throwable t) {
+            return "Java-Teil: Fehler " + t.getClass().getSimpleName();
+        }
+    }
+
+    /** TILE lines of the last inspection, newline separated. */
+    @LuaMethod(name = "VPGF_lastSummary", global = true)
+    public static String lastSummary() {
+        try {
+            return SquareInspector.lastSummary();
+        } catch (Throwable t) {
+            return "";
         }
     }
 

@@ -30,6 +30,11 @@ public final class Log {
         toFile(line);
     }
 
+    /** Written to VPGeometryFix.log only; keeps console.txt short. */
+    public static void fileOnly(String msg) {
+        toFile(PREFIX + msg);
+    }
+
     /** Only printed while debug mode is on. */
     public static void debug(String msg) {
         if (Config.isDebug()) info("[debug] " + msg);

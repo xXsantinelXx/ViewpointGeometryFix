@@ -68,6 +68,19 @@ public final class Reflect {
         return null;
     }
 
+    /** Reads an instance field (any visibility, inherited), or returns null. */
+    public static Object field(Object target, String name) {
+        if (target == null) return null;
+        try {
+            Field f = findField(target.getClass(), name);
+            if (f == null || Modifier.isStatic(f.getModifiers())) return null;
+            f.setAccessible(true);
+            return f.get(target);
+        } catch (Throwable t) {
+            return null;
+        }
+    }
+
     /** Calls a public no-arg instance method, or returns null. */
     public static Object call(Object target, String method) {
         if (target == null) return null;

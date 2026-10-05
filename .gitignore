@@ -6,3 +6,4 @@ local/
 *.inventory.txt
 .idea/
 .vscode/
+__pycache__/
