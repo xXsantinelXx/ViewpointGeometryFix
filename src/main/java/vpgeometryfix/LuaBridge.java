@@ -100,7 +100,9 @@ public final class LuaBridge {
     public static String roofFixStatus() {
         try {
             String b = "Dach-Fix B (Code): " + (RoofFallback.isEnabled() ? "AN" : "AUS")
-                    + (RoofFallback.calls() > 0 ? ", Patch aktiv, ersetzt " + RoofFallback.replaced() + " Formen"
+                    + (RoofFallback.calls() > 0 ? ", Patch aktiv (" + RoofFallback.calls() + " Aufrufe)\n"
+                        + "  Daecher: mit Form " + RoofFallback.roofShaped() + ", ohne Form " + RoofFallback.roofEmpty()
+                        + ", ersetzt " + RoofFallback.replaced()
                         : ", Patch noch nicht aufgerufen");
             Path data = roofDataFile();
             String a = "Dach-Fix A (Datei): " + (data != null && java.nio.file.Files.isRegularFile(data)
@@ -117,6 +119,7 @@ public final class LuaBridge {
         try {
             RoofFallback.setEnabled(on);
             Config.put("roofFixB", Boolean.toString(on));
+            RoofFallback.stats();
             Log.info("roof fix B: " + (on ? "ON" : "OFF") + " (affects newly built areas; restart for a full effect)");
         } catch (Throwable t) {
             Log.error("setRoofFix failed", t);
@@ -222,6 +225,7 @@ public final class LuaBridge {
     @LuaMethod(name = "VPGF_reportEnd", global = true)
     public static String reportEnd() {
         try {
+            if (RoofFallback.calls() > 0) RoofFallback.stats();
             return SquareInspector.end();
         } catch (Throwable t) {
             Log.error("reportEnd failed", t);

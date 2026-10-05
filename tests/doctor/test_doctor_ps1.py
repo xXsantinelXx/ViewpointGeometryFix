@@ -93,6 +93,17 @@ with tempfile.TemporaryDirectory() as t:
          "LOG : General > [Viewpoint] renderer ready"]
         + ["LOG : General > [Viewpoint] 60 fps | gpu ms floors 0.01"] * 300
         + ["LOG : General > [ViewpointTurbo/VRAM] floor reserved"] * 50) + "\n")
+    (zb / "VPGeometryFix").mkdir()
+    (zb / "VPGeometryFix/VPGeometryFix.log").write_text("\n".join([
+        "old Java component loaded via ZombieBuddy (roofFixB=true)",
+        "old roof fix B: roofs_02_1 <- roofs_01_1 (1 shape(s))",
+        "new Java component loaded via ZombieBuddy (roofFixB=true)",
+        "roof fix B stats: geometryFor calls=1, roofs with shape=0, roofs without shape=0, replaced=0, fix B ON",
+        "roof seen: roofs_01_77 - no shape, no sibling",
+        "roof seen: roofs_30_02_5 - no shape, sibling roofs_30_01_5 has none either",
+        "roof seen: roofs_01_0 - has 1 shape(s)",
+        "unrelated line"]) + "\n")
+    (zb / "VPGeometryFix/config.properties").write_text("#c\nroofFixB=true\n")
     out = t / "out/VPGF-Report.txt"
     out.parent.mkdir()
     r = subprocess.run([pwsh, "-NoProfile", "-File", str(PS1), "-SteamLib", str(lib), "-Zomboid", str(zb), "-Out", str(out)],
@@ -110,9 +121,13 @@ with tempfile.TemporaryDirectory() as t:
                    "Mod-Lua geladen: ja, Startblock: ja, Java-Teil der Mod: NEIN, ZombieBuddy aktiv: ja, Fehlerzeilen der Mod: 1",
                    "--- Zeilen dieser Mod (6)", "ERROR in OnGameStart: boom", "attempted index: x of non-table",
                    "--- ZombieBuddy (1)", "--- Viewpoint (ohne Leistungsmeldungen) (1)", "[Viewpoint] renderer ready",
-                   "Der Lua-Teil der Mod laeuft, der Java-Teil nicht", "Die Mod meldet 1 Fehler", "=== ERGEBNIS ==="]:
+                   "Der Lua-Teil der Mod laeuft, der Java-Teil nicht",
+                   "=== 5b VPGeometryFix.log", "  roofFixB=true", "--- Dach-Zeilen (5)",
+                   "roof seen: roofs_01_77 - no shape, no sibling",
+                   "Dach-Fix B hat nichts ersetzt. Dach-Tilesets ohne Form, die Viewpoint wirklich angefragt hat: roofs_01, roofs_30_02", "Die Mod meldet 1 Fehler", "=== ERGEBNIS ==="]:
         check(needle in rep, f"missing {needle!r}\n{rep}")
     check("viewpoint.input.Look" not in rep.split("=== 5")[0].split("Klassen gesamt")[1], "non-keyword class listed")
+    check("old roof fix B" not in rep, "only the last start of VPGeometryFix.log")
     check("Mod liegt an falscher Stelle" not in rep, "correct path reported as wrong")
     check(rep.count("attempted index") == 1, "follow-up error listed once")
     check("ZombieBuddy nicht gefunden" not in rep, "no ZombieBuddy finding while it is active")
