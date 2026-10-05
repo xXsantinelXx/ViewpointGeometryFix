@@ -185,7 +185,7 @@ public final class LuaBridge {
         }
     }
 
-    /** which = "viewpoint" (Viewpoint jar, package viewpoint.) or "game" (projectzomboid.jar, zombie.iso.). */
+    /** which = "viewpoint", "game" (zombie.iso.) or a game package prefix such as "zombie.tileDepth.". */
     @LuaMethod(name = "VPGF_inventory", global = true)
     public static String inventory(String which) {
         try {
@@ -193,6 +193,9 @@ public final class LuaBridge {
             Path out;
             if ("game".equals(which)) {
                 out = ClassInventory.write(i.gameJar, "zombie.iso.", "game_zombie_iso");
+            } else if (which != null && which.startsWith("zombie.")) {
+                // any game package, e.g. "zombie.tileDepth." (source of Viewpoint's tile shapes)
+                out = ClassInventory.write(i.gameJar, which, "game_" + which.replace('.', '_'));
             } else {
                 if (!i.vpClassesFound) {
                     Log.info("inventory: Viewpoint not detected");

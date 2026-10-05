@@ -61,7 +61,21 @@ ZombieBuddy und UI. Test: `tests/doctor/test_doctor_ps1.py` (PowerShell 7).
 
 ## Eingriffspunkte für den späteren Fix
 
-Reihenfolge nach Wahrscheinlichkeit, alle über ZombieBuddy-Advice auf
+**Stand 2026-10-05:** Mit den Signaturen aus dem Viewpoint-JAR (RESEARCH.md,
+„Nahwelt-Pipeline“) ist der wahrscheinlichste Ansatzpunkt die Quelle der
+Tile-Formen:
+
+* **0. Daten statt Code [U]:** Falls die Spiel-Tile-Geometrie
+  (`zombie.tileDepth`) aus Mod-Dateien ergänzt/überschrieben werden kann,
+  lassen sich falsche Dach-/Kanten-Formen als Datenmod korrigieren – ohne
+  Java-Hook. Wird zuerst geprüft.
+* **0b. `viewpoint.world.TileMeshes.geometryFor(IsoSprite)` [V1-Signatur]:**
+  `@Patch.OnExit` mit `@Patch.Return(readOnly = false)` liefert für bekannte
+  Problem-Sprites korrigierte Geometrie. Klein, gezielt, pro Sprite.
+* **0c. `WorldMesher.rise(IsoObject)` [V1-Signatur]:** falls Fehlerbild A
+  (schwebende Dachfläche) eine falsche Anhebung ist.
+
+Danach die ursprüngliche Liste, alle über ZombieBuddy-Advice auf
 Viewpoint-Klassen (zur Laufzeit, keine Dateiänderung):
 
 1. **Produzentenseitige Sichtbarkeit** [V2-Namen]:

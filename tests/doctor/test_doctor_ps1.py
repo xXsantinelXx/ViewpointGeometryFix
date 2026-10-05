@@ -34,10 +34,30 @@ with tempfile.TemporaryDirectory() as t:
     addon = lib / "steamapps/workshop/content/108600/998/mods/ViewpointCar/42"
     addon.mkdir(parents=True)
     (addon / "mod.info").write_text("id=ViewpointCar\nmodversion=1.0\n")
+    # real class files for the signature reader (compiled from small fixtures)
+    src = t / "fx/viewpoint/world"
+    src.mkdir(parents=True)
+    (src / "WallMesher.java").write_text(
+        "package viewpoint.world;\n"
+        "public final class WallMesher {\n"
+        "  static int built; private float[][] verts; long id = 5L; double d = 1.5;\n"
+        "  public static boolean edge(int x, String s, java.util.List<int[]> l) { Runnable r = () -> {}; return x > 0; }\n"
+        "  void roof(Object o, long[] a) {}\n"
+        "  static final class Slope { int dz; }\n"
+        "}\n")
+    subprocess.run(["javac", "--release", "17", "-d", str(t / "fxc"), str(src / "WallMesher.java")], check=True)
     with zipfile.ZipFile(vp / "media/java/client/viewpoint.jar", "w") as z:
         for n in ["viewpoint/render/WorldRenderer.class", "viewpoint/world/ChunkWalk.class",
                   "viewpoint/input/Look.class", "viewpoint/render/WorldRenderer$1.class"]:
             z.writestr(n, b"\xca\xfe\xba\xbe")
+        for f in sorted((t / "fxc").rglob("*.class")):
+            z.write(f, f.relative_to(t / "fxc").as_posix())
+    (pz / "media/tileGeometry").mkdir(parents=True)
+    (pz / "media/tileGeometry/roofs_01.txt").write_text("x" * 3000)
+    (pz / "media/scripts").mkdir(parents=True)
+    (pz / "media/scripts/items.txt").write_text("x")
+    (addon / "media").mkdir()
+    (addon / "media/tileDepth_override.txt").write_text("x")
     zb = t / "Zomboid"
     good = zb / "mods/ViewpointGeometryFix/42"
     (good / "media/lua/client").mkdir(parents=True)
@@ -66,7 +86,7 @@ with tempfile.TemporaryDirectory() as t:
                    "Mod: id=Viewpoint name=Project Viewpoint modversion=0.1.5a-hotfix",
                    "viewpoint.jar: sha256",
                    "Viewpoint-Add-ons im Workshop-Ordner (1): ViewpointCar 1.0",
-                   "Klassen gesamt: 4, davon mit Geometrie-/Render-Stichwort: 3",
+                   "Klassen gesamt: 6, davon mit Geometrie-/Render-Stichwort: 5",
                    "      viewpoint.render.WorldRenderer", "      viewpoint.world.ChunkWalk",
                    "    Lua: vorhanden", "    JAR: FEHLT",
                    "Mod-Lua geladen: ja, Startblock: ja, Java-Teil der Mod: NEIN, ZombieBuddy aktiv: ja, Fehlerzeilen der Mod: 1",
@@ -78,8 +98,19 @@ with tempfile.TemporaryDirectory() as t:
     check("Mod liegt an falscher Stelle" not in rep, "correct path reported as wrong")
     check(rep.count("attempted index") == 1, "follow-up error listed once")
     check("ZombieBuddy nicht gefunden" not in rep, "no ZombieBuddy finding while it is active")
+    check("items.txt" not in rep, "unrelated media file listed")
     check("60 fps" not in rep and "ViewpointTurbo/VRAM" not in rep, "performance spam must be filtered")
     check("javaagent" not in rep.split("=== ERGEBNIS ===")[1], "javaagent is no finding when ZombieBuddy is evidently active")
+    geo = out.parent / "VPGF-Viewpoint-Geometry.txt"
+    gtext = geo.read_text(encoding="utf-8-sig") if geo.exists() else ""
+    for needle in ["viewpoint.world.WallMesher extends java.lang.Object",
+                   "  F static int built", "  F float[][] verts", "  F long id", "  F double d",
+                   "  M static boolean edge(int, String, java.util.List)", "  M void roof(Object, long[])",
+                   "viewpoint.world.WallMesher$Slope extends java.lang.Object", "  F int dz"]:
+        check(needle in gtext, f"geometry signatures missing {needle!r}\n{gtext}")
+    check("lambda$" not in gtext, "synthetic lambda methods must be skipped")
+    check("viewpoint.world.ChunkWalk : nicht lesbar" in gtext, "broken class reported, not fatal")
+    check("Signaturen von 2 Geometrie-/Sichtbarkeits-Klassen" in rep, "geometry summary line")
     cls = out.parent / "VPGF-Viewpoint-Classes.txt"
     check(cls.exists() and "viewpoint.input.Look" in cls.read_text(encoding="utf-8-sig"), "class list file")
 

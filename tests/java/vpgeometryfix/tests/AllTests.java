@@ -51,6 +51,17 @@ public final class AllTests {
             eq(null, ModInfo.findAbove(jar, 2));
         });
 
+        test("ModInfo.findAbove with mod.info only in common/", () -> {
+            Path root = tmp.resolve("VP2");
+            Path jarDir = root.resolve("42/media/java/client");
+            Files.createDirectories(jarDir);
+            Files.createDirectories(root.resolve("common"));
+            Files.writeString(root.resolve("common/mod.info"), "id=Viewpoint\nmodversion=0.1.5a-hotfix\n");
+            Path jar = jarDir.resolve("Viewpoint.jar");
+            Files.writeString(jar, "x");
+            eq("Viewpoint", ModInfo.findAbove(jar, 6).get("id"));
+        });
+
         test("KnownBinaries", () -> {
             eq("Viewpoint 0.1.5a-hotfix", KnownBinaries.identify("94fedda302ab6c17ba1b38495789e4c9781d52823fb8204214c85402e3cab41f"));
             eq("not an audited build", KnownBinaries.identify("00"));
@@ -153,13 +164,16 @@ public final class AllTests {
                 contains(rep, "=== z+0 square 10,20,1");
                 contains(rep, "getObjects() count=1");
                 contains(rep, "getSpecialObjects() count=1");
-                contains(rep, "FakeObject sprite=roofs_01_12 kind~ROOF");
+                contains(rep, "FakeObject sprite=roofs_01_12 kind~ROOF vpGeom=2(Polygon,Box) rise=0.25");
+                contains(rep, "viewpoint geometryFor: 2 shape(s)");
+                contains(rep, "Polygon.points : float[] = float[4] {0.0, 0.0, 1.0, 1.0}");
+                contains(rep, "FakeObject sprite=walls_exterior_house_01_0 kind~WALL vpGeom=0 rise=0.25");
                 contains(rep, "FakeObject sprite=walls_exterior_house_01_0 kind~WALL");
                 contains(rep, "z+1: square is null");
                 contains(rep, "View.enabled=false");
                 contains(rep, "FakeObject.alpha : float = 0.5");
                 check(!rep.contains("unrelatedCounter"));
-                contains(LuaBridge.lastSummary(), "TILE 10,20,1 Objects#0 FakeObject sprite=roofs_01_12 kind~ROOF");
+                contains(LuaBridge.lastSummary(), "TILE 10,20,1 Objects#0 FakeObject sprite=roofs_01_12 kind~ROOF vpGeom=2(Polygon,Box)");
             });
             contains(out, "[VPGeometryFix] TILE 10,20,1 Objects#0 FakeObject sprite=roofs_01_12 kind~ROOF");
             contains(out, "[VPGeometryFix] TILE 10,20,1 SpecialObjects#0 FakeObject sprite=walls_exterior_house_01_0 kind~WALL");

@@ -131,6 +131,74 @@ Near/Far 0.05/400 [V2].
 | Fern-Geometrie | `render.FarPass` (Shell-/Cell-Uploads, Tree-Baking, Frustum/Masken) | [V2] |
 | Chunk-Culling | `world.ChunkWalk.inView` | [V2] |
 
+### Update 2026-10-05: Klassen aus dem installierten Viewpoint-JAR [V1]
+
+Der VPGF Doctor hat beim Nutzer das JAR mit SHA-256 `94fedda3…` (= auditierter
+Build 0.1.5a-hotfix) gelesen: 654 Klassen, Paket `viewpoint`, geladen über
+ZombieBuddy 2.3.4 als Java-Mod mit eigenen `viewpoint.Patch_*`-Klassen
+(u. a. `Patch_GameRender`, `Patch_ZombieCull`, `Patch_CullAnimals`,
+`Patch_Pick*`). Viewpoint meldet selbst „compat: all 61 patch targets and 61
+private members found“. **Existenz** der folgenden Klassen ist damit [V1];
+ihre **Rolle** ergibt sich bisher nur aus dem Namen und bleibt [H], bis die
+Signaturen (`VPGF-Viewpoint-Geometry.txt`, Doctor ≥ 0.3.0) vorliegen.
+
+| Bereich | Klassen (Existenz [V1], Rolle [H]) |
+|---|---|
+| Nahwelt-Meshing (Kandidaten für Dach, Dachkante, Wand) | `world.WorldMesher`, `world.WallMesher`, `world.TileMesh`, `world.TileMeshes`, `world.MeshBuilder`, `world.MeshRecorder`, `world.Recipe`, `world.RecipeCodec`, `world.Cook`, `world.EarClip`, `world.Facades`, `world.FacadeColours` |
+| Chunk-Verwaltung | `world.ChunkBuilds`, `world.ChunkCache`, `world.ChunkBudget`, `world.ChunkWalk`, `world.DrawList`, `world.MutationInbox` |
+| Böden | `world.FloorGather`, `world.FloorSpans`, `world.FloorPages`, `world.FloorDecals`, `render.FloorBaker`, `render.FloorBakes`, `render.FloorLayers` |
+| Modellpakete (Sprite → 3D-Modell, z. B. PZVoxelStudio) | `world.PackGather`, `packs.ModelPacks`, `render.PackModels`, `render.PackDraws`, `render.PackArena` |
+| Sichtbarkeit | `visibility.Rooms`, `visibility.Portals`, `visibility.Apertures`, `visibility.Edges`, `visibility.Topology`, `visibility.SectorGraph`, `visibility.GraphBuilder`, `visibility.Selection`, `visibility.DrawPlans`, `visibility.Capture`, `visibility.Owner`, `visibility.Glass`, `visibility.Fragment` |
+| Fernwelt (Gebäudehüllen inkl. Dächer in der Ferne) | `far.ShellMesher`, `far.ShellBlock`, `far.FarShell`, `far.FarMesher`, `far.FarTiles`, `far.ShellInteriors` |
+| GPU-Seite | `render.Meshes`, `render.ChunkMeshData`, `render.MeshArena`, `render.ShellArena`, `render.SurfacePass` |
+
+Die Fehlerbilder aus `docs/OBSERVATIONS.md` (Dachfläche zu hoch, Giebelkanten
+ragen heraus, Dach fehlt, gestufte Vordächer) treten in der Nahwelt auf; erste
+Kandidaten sind daher `world.WorldMesher`/`WallMesher`/`TileMesh(es)`/`Recipe`
+[H]. Ob ein Modellpaket (PZVoxelStudio, Viewpoint2Dto3D) die Dach-Sprites
+ersetzt, ist zu prüfen [U].
+
+### Update 2026-10-05 (2): Nahwelt-Pipeline aus den Signaturen
+
+Quelle: Methoden-/Feldsignaturen von 88 Klassen aus dem JAR des Nutzers
+(Doctor 0.3.0). Die **Signaturen** sind [V1]; die **Abfolge** ist aus Namen und
+Typen abgeleitet [H], aber in sich schlüssig:
+
+```
+ChunkWalk.walk / ChunkCache.update(Frame, IsoCell, int)
+  → ChunkBuilds.queue / buildQueued / rebuild(Level, IsoChunk, level, …)
+    → WorldMesher.gather(IsoChunk, level, …) : Recipe          (Hauptthread)
+        → WorldMesher.square(IsoGridSquare, x, y, z, boolean[], boolean)
+            → TileMeshes.get(IsoSprite, Texture, IsoSprite) : TileMesh  (Cache)
+                → TileMeshes.create(…) → geometryFor(IsoSprite) : ArrayList
+                    → TileMeshes.lookup(String, int)
+                    → MeshBuilder.add(zombie.tileDepth.TileGeometryFile$Geometry)
+                         → box(Box) / cylinder(Cylinder) / polygon(Polygon) → build() : TileMesh
+                → (ohne Geometrie) TileMeshes.edgeQuads(IsoSprite) / wall(boolean…) / floor()
+            → WallMesher.wall(IsoSprite, TileMesh, Texture, IsoGridSquare, x, y, z, boolean[])
+            → WorldMesher.rise(IsoObject) : float, pixelScale(Texture), overlays(…)
+            → Recipe.place / placeFace / placeCaps → Recipe$Op (EMIT, FACE, CAPS, RAW, PLANT, MODEL)
+            → PackGather.object(…) (Modellpakete ersetzen Sprites durch 3D-Modelle)
+  → Cook.mesh(Recipe) : ChunkMeshData                      (Cook-Threads)
+  → Meshes.prepare / draw → GPU (MeshArena)
+Sichtbarkeit: Rooms.plan(SceneData, …, ChunkMeshData, …) → DrawPlans.leaveOut(…)
+Fernwelt:     FarTiles.classify(String) (Kinds u. a. ROOF, WALL) → ShellMesher.mesh(…) → FarShell
+```
+
+**Kernbefund [H, stark]:** Die 3D-Form eines Tiles (Dachfläche, Dachkante,
+Giebel) stammt aus `zombie.tileDepth.TileGeometryFile` – den Tile-Geometrien,
+die das Spiel in B42 für die Tiefensortierung der **isometrischen** Ansicht
+nutzt. Diese Daten müssen nur aus der festen Iso-Kamera stimmen; aus der
+Ich-Perspektive fallen Abweichungen auf. Das passt zu den Fehlerbildern A–D
+(`OBSERVATIONS.md`): Dachflächen mit falscher Höhe, überstehende
+Kanten-Polygone, fehlende Flächen (keine Geometrie → Rückfall auf
+`edgeQuads`/leer), gestufte Vordächer.
+
+Zu prüfen [U]: (1) welche Datei die Tile-Geometrie enthält und ob Mods sie
+überschreiben können (Doctor 0.3.1 sucht danach), (2) was
+`TileMeshes.geometryFor` für die betroffenen Dach-Sprites liefert
+(Inspektion 0.1.4 schreibt es in jede TILE-Zeile: `vpGeom=…`).
+
 Die Klassen, die aus einzelnen `IsoObject`/Sprite-Typen Dreiecke erzeugen
 („Mesh-Builder“ für Dach/Wand/Kante), sind in keiner öffentlichen Quelle
 benannt. Das Diagnose-Werkzeug erzeugt dafür lokal ein Inventar
